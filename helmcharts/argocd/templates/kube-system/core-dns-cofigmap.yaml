@@ -12,27 +12,8 @@ data:
             class error
         }
         hosts {
-            # Phase 2 batch 3 (infra tools) of Envoy Gateway -> Istio Gateway
-            # migration scoping, see https://github.com/Alarmify/alarmify-docs/blob/main/docs/istio/index.md. argocd.home.arpa
-            # moved last, separately, since it's the GitOps control plane's
-            # own dashboard.
-            192.168.3.10 argocd.home.arpa
-            192.168.3.10 grafana.home.arpa
-            192.168.3.10 clickhouse.home.arpa
-
-            # Phase 5 (final): ca.home.arpa. Left on Envoy Gateway until moved as
-            # part of retiring envoy-gateway entirely (2026-07-12), then
-            # re-pointed to istio-gateway in the same change.
-            192.168.3.10 ca.home.arpa
-
-            # Phase 3 (TCPRoutes): nats on istio-gateway.
-            192.168.3.10 nats.home.arpa
-
-            # Phase 1 pilot: Envoy Gateway -> Istio Gateway migration scoping (see
-            # https://github.com/Alarmify/alarmify-docs/blob/main/docs/istio/index.md). kiali.home.arpa never had a DNS entry before
-            # this -- points straight at the new Istio gateway, no cutover of
-            # existing traffic involved.
-            192.168.3.10 kiali.home.arpa
+            # argocd.home.arpa -> cilium-gateway's hub LoadBalancer IP (helmcharts/cilium/values/hub.yaml).
+            192.168.7.10 argocd.home.arpa
 
             # dev cluster's own istio-gateway (192.168.5.11, see
             # helmcharts/istio/istio-gateway/values/dev.yaml). dev-echo.home.arpa is the

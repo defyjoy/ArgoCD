@@ -1,0 +1,74 @@
+# Cilium Gateway ApplicationSet
+# North-south ingress Gateway on Cilium's own Gateway API support, replacing istio-gateway
+# on hub. See helmcharts/cilium/values.yaml's gatewayAPI.enabled.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cilium-gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-19"  # right after cilium (-20)
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - hub
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-cilium-gateway"` }}
+      namespace: argocd
+      labels:
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{metadata.labels.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/manifest-generate-paths: "."
+        argocd.argoproj.io/sync-wave: "-19"
+    spec:
+      project: default
+
+      source:
+        repoURL: git@github.com:defyjoy/ArgoCD.git
+        targetRevision: HEAD
+        path: helmcharts/cilium-gateway
+        helm:
+          valueFiles:
+            - values.yaml
+            - {{ `"values/{{metadata.labels.environment}}.yaml"` }}
+          ignoreMissingValueFiles: true
+
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: cilium-gateway
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        managedNamespaceMetadata:
+          labels:
+            name: cilium-gateway
+
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+      revisionHistoryLimit: 3

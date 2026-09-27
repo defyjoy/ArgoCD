@@ -1,0 +1,21 @@
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ .Values.gateway.name }}
+  namespace: {{ .Values.gateway.namespace }}
+  labels:
+    app.kubernetes.io/name: cilium-gateway
+    app.kubernetes.io/component: gateway
+  {{- with .Values.gateway.externalDns }}
+  annotations:
+    external-dns.alpha.kubernetes.io/target: {{ .target | quote }}
+  {{- end }}
+spec:
+  gatewayClassName: cilium
+  {{- with .Values.gateway.addresses }}
+  addresses:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  listeners:
+    {{- toYaml (concat .Values.gateway.commonListeners .Values.gateway.envListeners) | nindent 4 }}

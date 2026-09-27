@@ -1,0 +1,9 @@
+externalSecrets:
+  vaultPath: alarmify/hub/cloudflared/credentials
+
+cloudflared:
+  tunnelConfig:
+    name: "hub"
+
+  ingress:
+    - service: http_status:404

@@ -1,0 +1,76 @@
+{{- if .Values.corednsKubeSystem.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns
+  namespace: kube-system
+data:
+  Corefile: |
+    home.arpa:53 {
+        errors
+        log . {
+            class error
+        }
+        hosts {
+            # Phase 2 batch 3 (infra tools) of Envoy Gateway -> Istio Gateway
+            # migration scoping, see https://github.com/Alarmify/alarmify-docs/blob/main/docs/istio/index.md. argocd.home.arpa
+            # moved last, separately, since it's the GitOps control plane's
+            # own dashboard.
+            192.168.3.10 argocd.home.arpa
+            192.168.3.10 grafana.home.arpa
+            192.168.3.10 clickhouse.home.arpa
+
+            # Phase 5 (final): ca.home.arpa. Left on Envoy Gateway until moved as
+            # part of retiring envoy-gateway entirely (2026-07-12), then
+            # re-pointed to istio-gateway in the same change.
+            192.168.3.10 ca.home.arpa
+
+            # Phase 3 (TCPRoutes): nats on istio-gateway.
+            192.168.3.10 nats.home.arpa
+
+            # Phase 1 pilot: Envoy Gateway -> Istio Gateway migration scoping (see
+            # https://github.com/Alarmify/alarmify-docs/blob/main/docs/istio/index.md). kiali.home.arpa never had a DNS entry before
+            # this -- points straight at the new Istio gateway, no cutover of
+            # existing traffic involved.
+            192.168.3.10 kiali.home.arpa
+
+            # dev cluster's own istio-gateway (192.168.5.11, see
+            # helmcharts/istio/istio-gateway/values/dev.yaml). dev-echo.home.arpa is the
+            # Phase 4 ACME HTTP-01 validation hostname for dev-gateway-cert -- without
+            # this record, Step CA (resolving via this same LAN DNS) can never reach
+            # dev's gateway to validate the challenge, and the Certificate hangs
+            # forever waiting on authorization.
+            192.168.5.11 dev-echo.home.arpa
+            fallthrough
+        }
+        cache 300
+    }
+
+    .:53 {
+        errors
+        health {
+            lameduck 5s
+        }
+        ready
+        log . {
+            class error
+        }
+        prometheus :9153
+
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+        }
+        forward . 192.168.1.100 {
+           max_concurrent 1000
+        }
+        cache 30 {
+           disable success cluster.local
+           disable denial cluster.local
+        }
+        loop
+        reload
+        loadbalance
+    }
+{{- end }}

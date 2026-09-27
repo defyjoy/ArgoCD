@@ -1,0 +1,54 @@
+{{- if and .Values.enabled .Values.stepCaAcmeClusterIssuer.enabled (ne .Values.stepCaAcmeClusterIssuer.stepcaHelmReleaseName "") }}
+{{- $s := .Values.stepCaAcmeClusterIssuer }}
+{{- $defaultServer := printf "https://%s-step-certificates.%s.svc.cluster.local/acme/acme/directory" $s.stepcaHelmReleaseName $s.stepcaNamespace }}
+{{- $acmeURL := default $defaultServer $s.acmeServer }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ $s.clusterIssuerName | quote }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  labels:
+    app.kubernetes.io/name: cert-manager
+    app.kubernetes.io/component: step-ca-acme-clusterissuer
+spec:
+  acme:
+    email: {{ $s.email | quote }}
+    server: {{ $acmeURL | quote }}
+    privateKeySecretRef:
+      name: {{ $s.accountKeySecretName | quote }}
+    {{- with $s.caBundle }}
+    caBundle: {{ . | quote }}
+    {{- end }}
+    solvers:
+      {{- /*
+      dnsNames-scoped solvers must come first: cert-manager picks the first solver
+      whose selector matches, and the catch-all (no selector) below would otherwise
+      shadow them. Needed once a hostname's DNS points at a different Gateway/IP than
+      the catch-all's http01 listener -- the ACME HTTP-01 challenge request has to
+      land on whichever Gateway that hostname's DNS actually resolves to, or it 404s.
+      See helmcharts/istio/istio-gateway (Envoy Gateway -> Istio Gateway migration scoping,
+      https://github.com/Alarmify/alarmify-docs/blob/main/docs/istio/index.md): kiali.home.arpa is the first hostname on the new gateway.
+      */}}
+      {{- range $s.additionalSolvers }}
+      - selector:
+          dnsNames: {{ .dnsNames | toYaml | nindent 12 }}
+        http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - group: gateway.networking.k8s.io
+                kind: Gateway
+                name: {{ .parentRef.name | quote }}
+                namespace: {{ .parentRef.namespace | quote }}
+                sectionName: {{ .parentRef.sectionName | quote }}
+      {{- end }}
+      - http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - group: gateway.networking.k8s.io
+                kind: Gateway
+                name: {{ $s.gatewayHttp01.parentRef.name | quote }}
+                namespace: {{ $s.gatewayHttp01.parentRef.namespace | quote }}
+                sectionName: {{ $s.gatewayHttp01.parentRef.sectionName | quote }}
+{{- end }}

@@ -1,0 +1,13 @@
+externalSecrets:
+  vaultPath: alarmify/dev/cloudflared/credentials
+
+cloudflared:
+  replica:
+    allNodes: false
+    count: 2
+
+  tunnelConfig:
+    name: "dev"
+
+  ingress:
+    - service: http_status:404

@@ -1,0 +1,13 @@
+enabled: true
+
+gateway:
+  name: cilium-gateway
+  namespace: cilium-gateway
+
+  commonListeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All

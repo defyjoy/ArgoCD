@@ -1,0 +1,35 @@
+# Helm chart dependencies
+# Ignore all downloaded chart dependencies (.tgz files). ** so this still matches
+# charts nested one level deeper under a vendor folder (helmcharts/istio/istiod/charts,
+# helmcharts/alarmify/alarmify-ui/charts) as well as the top-level helmcharts/<chart>.
+helmcharts/**/charts/*.tgz
+
+# Ignore Chart.lock files (optional - uncomment if you want to ignore lock files)
+# helmcharts/**/Chart.lock
+
+# Helm temporary files
+*.tmp
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+rke2.yaml
+hashicorp-vault-init.json
+delete-me
+
+# Bootstrap secrets read by task provision-vault-secrets (.env.example is the template)
+.env
+!.env.example
+
+# MkDocs static site output (see mkdocs.yml)
+/site/
+
+# Local venv for MkDocs + Material (task docs:install)
+.venv-docs/

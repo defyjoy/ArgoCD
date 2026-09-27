@@ -1,0 +1,50 @@
+gateway:
+  addresses:
+    - type: IPAddress
+      value: 192.168.3.10
+
+  externalDns:
+    target: 9da192fd-9481-44a4-a379-f205b66549b7.cfargotunnel.com
+
+  envListeners:
+    - name: postgres
+      protocol: TCP
+      port: 5432
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: nats
+      protocol: TCP
+      port: 4222
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: vminsert
+      protocol: TCP
+      port: 8480
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: tempo-otlp
+      protocol: TCP
+      port: 4317
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: https
+      protocol: HTTPS
+      port: 443
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: stepca-ca-home-arpa-tls
+            namespace: cilium-gateway

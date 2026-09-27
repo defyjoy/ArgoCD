@@ -28,3 +28,22 @@ tasks:
       Useful for troubleshooting cluster access issues.
     cmds:
       - bash "{{.REPO_ROOT}}/scripts/cluster/check-cluster-connectivity.sh"
+
+  wait-cilium:
+    desc: "Verify Cilium (CNI) is up before bootstrapping Argo CD"
+    summary: |
+      Pre-flight check, not an install step -- Cilium itself is provisioned once by the
+      proxmox-talos Terraform module, before this repo's bootstrap ever runs (this repo only
+      takes over reconciling it afterwards, via the `cilium` ApplicationSet). This just confirms
+      that install actually landed before `task bootstrap` tries to schedule Argo CD, which
+      otherwise hangs with pods stuck Pending/ContainerCreating and no clear reason why.
+
+      Waits for (up to 15m total):
+      1. daemonset/cilium rollout (agents on every node)
+      2. deployment/cilium-operator rollout, if present
+      3. every node to report Ready (on a fresh Talos cluster with no CNI, nodes cannot go
+         Ready until Cilium's agents are running, so this is the real success signal)
+    env:
+      CILIUM_NAMESPACE: kube-system
+    cmds:
+      - bash "{{.REPO_ROOT}}/scripts/cluster/wait-cilium.sh"

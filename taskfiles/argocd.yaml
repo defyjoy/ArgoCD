@@ -29,10 +29,10 @@ tasks:
 
       Deploys exactly two Helm charts, by two different mechanisms (see README "Bootstrap
       mechanics" for the full explanation of why):
-        - helmcharts/argocd      — bootstrapped with one raw `helm upgrade --install` (step 3),
+        - helmcharts/argocd      — bootstrapped with one raw `helm upgrade --install` (step 4),
                                    since nothing exists yet to deploy it any other way. Every
-                                   upgrade after that goes through step 6 instead.
-        - helmcharts/argocd-apps — never touched by the Helm CLI. Step 7 seeds a single static
+                                   upgrade after that goes through step 7 instead.
+        - helmcharts/argocd-apps — never touched by the Helm CLI. Step 8 seeds a single static
                                    Application manifest that tells Argo CD to render and manage
                                    this chart itself; that chart's own templates are every
                                    ApplicationSet in the tree plus the two seed Applications
@@ -40,30 +40,35 @@ tasks:
                                    another kubectl apply).
 
       Assumes the cluster already has a working CNI + LoadBalancer — Cilium is provisioned by
-      the proxmox-talos Terraform module, not this repo. Nothing here installs a CNI.
+      the proxmox-talos Terraform module, not this repo. Nothing here installs a CNI; step 2
+      only verifies Terraform's install actually landed before going any further.
 
       Full steps:
-      1. Prerequisites check
-      2. Gateway API CRDs (experimental channel) — no chart ships these, and every
+      1. Prerequisites check (kubectl/helm present, cluster reachable)
+      2. Wait for Cilium — fails fast with a clear reason if the CNI never came up, instead of
+         Argo CD's pods hanging Pending/ContainerCreating for an unrelated-looking reason.
+      3. Gateway API CRDs (experimental channel) — no chart ships these, and every
          HTTPRoute/TCPRoute chart fails to sync without them.
-      3. ArgoCD MINIMAL install via raw `helm upgrade --install` (Git SSH repo wired from
+      4. ArgoCD MINIMAL install via raw `helm upgrade --install` (Git SSH repo wired from
          Taskfile vars). Uses values-bootstrap.yaml to skip resources not installable by plain
          Helm on a fresh cluster: dev-cluster ExternalSecret (External Secrets CRDs absent) and
          the kube-system/coredns ConfigMap (already exists, Talos-created — Helm won't adopt it).
-         It also disables the argocd-server HTTPRoute; since step 2 now installs the Gateway API
-         CRDs first that is redundant, but harmless — Argo CD renders it from git at step 6.
-      4. Wait for ArgoCD to be ready
-      5. Display admin credentials
-      6. Configure self-management → seeds the `argocd` Application; Argo CD now reconciles the
+         It also disables the argocd-server HTTPRoute; since step 3 now installs the Gateway API
+         CRDs first that is redundant, but harmless — Argo CD renders it from git at step 7.
+      5. Wait for ArgoCD to be ready
+      6. Display admin credentials
+      7. Configure self-management → seeds the `argocd` Application; Argo CD now reconciles the
          FULL values.yaml from git (its own upgrades replace the CLI from here on).
-      7. Configure app-of-apps pattern → seeds the `argocd-apps` Application; Argo CD renders
-         that chart, which installs external-secrets-operator and every other ApplicationSet in
-         the tree, after which Argo CD self-heals the ExternalSecret and adopts the existing
-         coredns ConfigMap automatically.
+      8. Configure app-of-apps pattern → seeds the `argocd-apps` Application; Argo CD renders
+         that chart, which installs external-secrets-operator, the `cilium`/`cilium-gateway`
+         ApplicationSets (which adopt Terraform's existing release), and every other
+         ApplicationSet in the tree, after which Argo CD self-heals the ExternalSecret and
+         adopts the existing coredns ConfigMap automatically.
 
       This is the recommended way to set up ArgoCD.
     cmds:
       - task: check-prerequisites
+      - task: wait-cilium
       - task: install
       - task: wait-ready
       - task: get-initial-admin-password
@@ -395,6 +400,7 @@ tasks:
       Use this if you want to configure self-management manually later.
     cmds:
       - task: check-prerequisites
+      - task: wait-cilium
       - task: install
       - task: wait-ready
       - task: get-initial-admin-password

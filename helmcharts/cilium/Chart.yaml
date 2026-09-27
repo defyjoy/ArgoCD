@@ -11,13 +11,17 @@ type: application
 # Wrapper chart version (this repo's packaging). Bump on template/values changes here.
 version: 0.1.0
 
-# Pinned Cilium version. 1.20.0-rc.1 is the first Cilium line that supports Kubernetes 1.35
-# (stable 1.19.x tops out at 1.34). RC is acceptable on the dev canary only; management waits
-# for 1.20.0 GA per the migration plan (Phases 6-9).
-appVersion: "1.20.0-rc.1"
+# Pinned Cilium version. 1.20.x is the first Cilium line that supports Kubernetes 1.35 (stable
+# 1.19.x tops out at 1.34). Must match the `cilium_version` Terraform installs in
+# proxmox-talos/terraform/envs/hub/.auto.tfvars (currently 1.20.2, GA) -- Terraform does the
+# one-time initial install on a fresh cluster (chicken-and-egg: no CNI, no Argo CD either), and
+# Argo CD takes over reconciling the same release from here on. A version mismatch here doesn't
+# just drift silently: Argo CD's automated sync actively downgrades/upgrades the live DaemonSet
+# to whatever this chart pins, every time it reconciles.
+appVersion: "1.20.2"
 
 dependencies:
   - name: cilium
-    version: "1.20.0-rc.1"
+    version: "1.20.2"
     repository: https://helm.cilium.io
     condition: enabled

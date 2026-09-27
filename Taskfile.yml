@@ -27,7 +27,7 @@ vars:
   GATEWAY_API_CHANNEL: experimental
   ARGOCD_GIT_REPO_KEY: defyjoy-argocd
   ARGOCD_GIT_REPO_URL: git@github.com:defyjoy/ArgoCD.git
-  ARGOCD_GIT_SSH_PRIVATE_KEY_PATH: "~/.ssh/github"
+  ARGOCD_GIT_SSH_PRIVATE_KEY_PATH: "~/.ssh/defyjoy"
 
 includes:
   cluster:

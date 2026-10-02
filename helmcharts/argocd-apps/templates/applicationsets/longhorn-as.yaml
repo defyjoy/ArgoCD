@@ -1,0 +1,90 @@
+# Longhorn ApplicationSet — distributed block storage (CSI)
+# Chart: https://charts.longhorn.io
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: longhorn
+  namespace: argocd
+  annotations:
+    # After the mesh (cilium -20, istio-base..istio-gateway -14..-10) and before every stateful
+    # chart: longhorn is the cluster's sole provisioner, so vault/cloudnative-pg/harbor all block
+    # on its StorageClass. It also templates an HTTPRoute, which needs cilium-gateway to exist.
+    argocd.argoproj.io/sync-wave: "-5"
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            longhorn: "true"
+        values:
+          environment: "hub"
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-longhorn"` }}
+      namespace: argocd
+      labels:
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{values.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/sync-wave: "-5"
+        argocd.argoproj.io/manifest-generate-paths: "."
+    spec:
+      project: default
+
+      source:
+        repoURL: git@github.com:defyjoy/ArgoCD.git
+        targetRevision: HEAD
+        path: helmcharts/longhorn
+        helm:
+          # values/<environment>.yaml holds only differential overrides (dev: no LAN httproute
+          # exposure yet -- see values/dev.yaml). Same pattern as helmcharts/cert-manager.
+          valueFiles:
+            - values.yaml
+            - {{ `"values/{{values.environment}}.yaml"` }}
+          ignoreMissingValueFiles: true
+
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: longhorn-system
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+          - PruneLast=true
+          - PrunePropagationPolicy=foreground
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+        managedNamespaceMetadata:
+          labels:
+            pod-security.kubernetes.io/enforce: privileged
+            pod-security.kubernetes.io/audit: privileged
+            pod-security.kubernetes.io/warn: privileged
+            name: longhorn-system
+            istio.io/dataplane-mode: none
+          annotations:
+            argocd.argoproj.io/managed: "true"
+
+      revisionHistoryLimit: 3
+
+      ignoreDifferences:
+        - group: apiextensions.k8s.io
+          kind: CustomResourceDefinition
+          jqPathExpressions:
+            - .metadata.annotations."kubectl.kubernetes.io/last-applied-configuration"
+            - .spec.preserveUnknownFields

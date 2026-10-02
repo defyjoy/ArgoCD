@@ -14,6 +14,7 @@ data:
         hosts {
             # argocd.home.arpa -> cilium-gateway's hub LoadBalancer IP (helmcharts/cilium/values/hub.yaml).
             192.168.7.10 argocd.home.arpa
+            192.168.7.10 longhorn.home.arpa
 
             # dev cluster's own istio-gateway (192.168.5.11, see
             # helmcharts/istio/istio-gateway/values/dev.yaml). dev-echo.home.arpa is the

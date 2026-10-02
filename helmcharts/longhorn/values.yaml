@@ -1,0 +1,53 @@
+enabled: true
+
+httproute:
+  enabled: true
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: cilium-gateway
+      namespace: cilium-gateway
+      sectionName: https
+  hostnames:
+    - longhorn.home.arpa
+  path: /
+  pathType: PathPrefix
+  annotations: {}
+
+longhorn:
+  global:
+    cattle:
+      windowsCluster:
+        enabled: false
+
+  networkPolicies:
+    enabled: false
+    type: k3s
+
+  persistence:
+    defaultClass: true
+    defaultFsType: ext4
+    defaultClassReplicaCount: 2
+    defaultDataLocality: disabled
+    reclaimPolicy: Delete
+    volumeBindingMode: Immediate
+    migratable: false
+
+  service:
+    ui:
+      type: ClusterIP
+
+  ingress:
+    enabled: false
+
+  httproute:
+    enabled: false
+
+  preUpgradeChecker:
+    jobEnabled: false
+
+  defaultSettings:
+    defaultDataPath: /var/mnt/longhorn-data
+    storageReservedPercentageForDefaultDisk: "3"
+    defaultReplicaCount: '{"v1":"2","v2":"2"}'
+    managerUrl: http://longhorn-backend.longhorn-system.svc:9500

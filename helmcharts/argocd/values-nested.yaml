@@ -8,6 +8,8 @@ hubClusterSecret:
   enabled: false
 
 argo-cd:
+  fullnameOverride: argocd
+
   redisSecretInit:
     enabled: true
 

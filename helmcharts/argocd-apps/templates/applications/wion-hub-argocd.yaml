@@ -1,0 +1,83 @@
+# Nested ArgoCD -- deployed BY hub's ArgoCD INTO the wion-hub vcluster, so wion-hub gets its
+# own GitOps control plane. Requires the wion-hub vcluster to already be registered as an
+# ArgoCD cluster -- that registration is created automatically by
+# helmcharts/vcluster/templates/argocd-cluster-registration-job.yaml (gated by
+# clusterRegistration.enabled in helmcharts/vcluster/values/wion-hub.yaml), which copies
+# vcluster's own auto-generated admin token/CA into a cluster Secret named
+# "local-wion-hub-vcluster-cluster" in this (argocd) namespace. No manual step either way.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: wion-hub-argocd
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/instance: wion-hub
+    app.kubernetes.io/component: nested-control-plane
+  annotations:
+    # After the vcluster ApplicationSet (wave 4) so the registration Job has had a chance to
+    # run first. Not a hard guarantee without a custom health check on Application/cluster
+    # Secret objects -- retry/backoff below covers the "cluster not found yet" window, same as
+    # every other eventually-consistent dependency in this repo.
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  project: default
+
+  source:
+    repoURL: git@github.com:defyjoy/ArgoCD.git
+    targetRevision: HEAD
+    path: helmcharts/argocd
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-wion-hub.yaml
+
+  destination:
+    # wion-hub vcluster's in-cluster API Service -- reachable because the vcluster control
+    # plane runs as a pod on hub, same as the ArgoCD that's syncing this Application.
+    server: https://local-wion-hub-vcluster.vcluster-wion-hub.svc.cluster.local
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  revisionHistoryLimit: 10
+
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jqPathExpressions:
+        - .webhooks[]?.clientConfig.caBundle
+    - group: ""
+      kind: Secret
+      name: argocd-secret
+      jqPathExpressions:
+        - .data
+    - group: apps
+      kind: StatefulSet
+      jqPathExpressions:
+        - .spec.volumeClaimTemplates
+    - group: ""
+      kind: PersistentVolumeClaim
+      jqPathExpressions:
+        - .status
+        - .metadata.annotations

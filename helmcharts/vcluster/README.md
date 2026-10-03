@@ -201,3 +201,24 @@ directions:
 ### Control-plane persistence
 
 Persistence for the vcluster control plane is configured separately from workload storage.
+
+### Registering an instance as its own ArgoCD cluster
+
+`values/wion-hub.yaml` sets `clusterRegistration.enabled: true`, which renders
+`templates/argocd-cluster-registration-job.yaml`: a one-shot Job, in the vcluster's own
+namespace, that copies the `token` and `certificate-authority` out of vcluster's
+**auto-generated** admin Secret (`vc-<release>`, created by the vcluster chart itself — not
+something this repo creates) into a new ArgoCD cluster-registration Secret
+(`<release>-cluster`) in the `argocd` namespace. That's what lets the hub ArgoCD target
+`https://<release>.<namespace>.svc.cluster.local` as a destination — see
+[`helmcharts/argocd-apps/templates/applications/wion-hub-argocd.yaml`](../argocd-apps/templates/applications/wion-hub-argocd.yaml)
+for the Application that actually uses it.
+
+This is deliberately the vcluster's **own** cluster-admin-equivalent credential, reused
+as-is — not a narrower, purpose-minted ServiceAccount token. Same blast radius as running
+`vcluster connect`. Only turn this on for an instance that genuinely needs the host ArgoCD
+managing workloads inside it.
+
+The Job can't register a vcluster before the vcluster itself has started (the `vc-<release>`
+Secret doesn't exist until the syncer comes up), so it polls for up to 5 minutes before
+failing — normal on first install, nothing to act on unless it's still failing after that.

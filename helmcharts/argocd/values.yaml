@@ -3,6 +3,9 @@ enabled: true
 corednsKubeSystem:
   enabled: true
 
+hubClusterSecret:
+  enabled: true
+
 devCluster:
   enabled: false
   server: "https://192.168.4.10:6443"

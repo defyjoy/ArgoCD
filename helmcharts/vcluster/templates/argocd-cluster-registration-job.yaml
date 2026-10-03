@@ -164,6 +164,7 @@ spec:
                   app.kubernetes.io/name: vcluster
                   app.kubernetes.io/component: argocd-cluster-registration
                   vcluster-name: ${RELEASE}
+                  nested-argocd: "true"
               type: Opaque
               stringData:
                 name: ${RELEASE}

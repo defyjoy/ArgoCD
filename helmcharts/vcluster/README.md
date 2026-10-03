@@ -213,9 +213,13 @@ itself — not something this repo creates) into a new ArgoCD cluster-registrati
 (the same client cert `vcluster connect` uses — this Secret's `token` key is left empty
 unless `exportKubeConfig`'s ServiceAccount-token feature is explicitly enabled, which this
 chart doesn't do). That's what lets the hub ArgoCD target
-`https://<release>.<namespace>.svc.cluster.local` as a destination — see
-[`helmcharts/argocd-apps/templates/applications/wion-hub-argocd.yaml`](../argocd-apps/templates/applications/wion-hub-argocd.yaml)
-for the Application that actually uses it.
+`https://<release>.<namespace>.svc.cluster.local` as a destination. The created Secret also
+carries `nested-argocd: "true"` — that's what
+[`helmcharts/argocd-apps/templates/applicationsets/remote-argocd-as.yaml`](../argocd-apps/templates/applicationsets/remote-argocd-as.yaml)'s
+`clusters` generator matches on to actually install a nested ArgoCD there, using
+`helmcharts/argocd/values-nested.yaml` as the overlay (disables `devCluster`,
+`corednsKubeSystem`, `hubClusterSecret`, and the Gateway HTTPRoute — none of those apply
+inside a vcluster). No new file needed per instance; just this one label.
 
 This is deliberately the vcluster's **own** cluster-admin-equivalent client cert, reused
 as-is — not a narrower, purpose-minted ServiceAccount token. Same blast radius as running

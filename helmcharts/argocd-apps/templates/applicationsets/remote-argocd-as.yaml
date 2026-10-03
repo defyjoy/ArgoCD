@@ -1,0 +1,97 @@
+# Remote ArgoCD ApplicationSet
+# Installs a nested ArgoCD into every remote cluster that's been registered and opted in --
+# currently vcluster instances registered by
+# helmcharts/vcluster/templates/argocd-cluster-registration-job.yaml, which labels the cluster
+# Secret it creates with `nested-argocd: "true"`. Generalizes the one-off wion-hub-argocd.yaml
+# Application: adding a new remote cluster (another vcluster instance, or eventually a real
+# separate cluster) needs no new file here -- it just needs that label on its registered
+# cluster Secret, same as every other ApplicationSet in this repo gates on cluster labels.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: remote-argocd
+  namespace: argocd
+  annotations:
+    # After the vcluster ApplicationSet (wave 4) so the registration Job has had a chance to
+    # run first. Best-effort, not a hard guarantee -- see helmcharts/vcluster/README.md.
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            nested-argocd: "true"
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-argocd"` }}
+      namespace: argocd
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+      labels:
+        app.kubernetes.io/name: argocd
+        app.kubernetes.io/instance: {{ `"{{name}}"` }}
+        app.kubernetes.io/component: nested-control-plane
+      annotations:
+        argocd.argoproj.io/sync-wave: "5"
+    spec:
+      project: default
+
+      source:
+        repoURL: git@github.com:defyjoy/ArgoCD.git
+        targetRevision: HEAD
+        path: helmcharts/argocd
+        helm:
+          valueFiles:
+            - values.yaml
+            - values-nested.yaml
+
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: argocd
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+      revisionHistoryLimit: 10
+
+      ignoreDifferences:
+        - group: admissionregistration.k8s.io
+          kind: ValidatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+        - group: admissionregistration.k8s.io
+          kind: MutatingWebhookConfiguration
+          jqPathExpressions:
+            - .webhooks[]?.clientConfig.caBundle
+        - group: ""
+          kind: Secret
+          name: argocd-secret
+          jqPathExpressions:
+            - .data
+        - group: apps
+          kind: StatefulSet
+          jqPathExpressions:
+            - .spec.volumeClaimTemplates
+        - group: ""
+          kind: PersistentVolumeClaim
+          jqPathExpressions:
+            - .status
+            - .metadata.annotations

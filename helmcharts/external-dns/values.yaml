@@ -1,5 +1,8 @@
 enabled: true
 
+cloudflareApiToken:
+  enabled: false
+
 external-dns:
   serviceAccount:
     create: true

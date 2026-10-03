@@ -1,186 +1,147 @@
-# External DNS Helm Chart
+# External DNS
 
-A production-ready Helm chart for External DNS with Cloudflare provider integration.
+Manages Cloudflare DNS records for Gateway `HTTPRoute`, `Service`, and `DNSEndpoint`
+resources on this cluster. Wraps the upstream
+[kubernetes-sigs/external-dns](https://github.com/kubernetes-sigs/external-dns) chart
+(`1.21.1`) with the Cloudflare provider.
 
-## Overview
+## Current bootstrap state (2026-10)
 
-External DNS automatically manages DNS records for Kubernetes services and ingresses. This chart provides a complete solution with:
-
-- 🔐 **Secure credential management** via External Secrets Operator
-- ☁️ **Cloudflare integration** with API token authentication
-- 📊 **Monitoring** with Prometheus metrics
-- 🔒 **Security** with Pod Security Standards
-- 🚀 **Production-ready** configuration
-
-## Features
-
-### Core Functionality
-- **Automatic DNS Management**: Creates/updates/deletes DNS records based on Kubernetes resources
-- **Cloudflare Provider**: Full integration with Cloudflare DNS API
-- **Multiple Sources**: Supports Gateway API, Service, and CRD sources
-- **Gateway API Support**: Automatically extracts hostnames from HTTPRoute resources
-- **Wildcard Support**: Handles wildcard domains and subdomains
-
-### Security
-- **External Secrets Integration**: Secure API token management via Vault
-- **Pod Security Standards**: Restricted security context
-- **RBAC**: Minimal required permissions
-- **Non-root execution**: Runs as non-root user
-
-### Monitoring & Observability
-- **Prometheus Metrics**: Built-in metrics endpoint
-- **ServiceMonitor**: Automatic Prometheus scraping
-- **Health Checks**: Liveness, readiness, and startup probes
-- **Structured Logging**: JSON-formatted logs
-
-### Production Features
-- **High Availability**: Pod disruption budget
-- **Resource Management**: CPU and memory limits
-- **Rolling Updates**: Zero-downtime deployments
-- **Leader Election**: Prevents conflicts in multi-replica setups
-
-## Prerequisites
-
-- Kubernetes 1.22+
-- External Secrets Operator
-- Vault with Cloudflare API token stored
-- Cloudflare account with API token
-
-## Installation
-
-### 1. Store Cloudflare API Token in Vault
-
-Put the token in `.env` at the repo root (gitignored — copy `.env.example`) and seed it
-with the bootstrap task, which writes it from inside the Vault pod:
+Vault and External Secrets Operator are **not fully wired up yet** on `hub`:
 
 ```bash
-# .env
-CLOUDFLARE_API_TOKEN=your-cloudflare-api-token-here
+export KUBECONFIG=~/.kube/talos-hub.yaml
+kubectl get pods -n external-secrets     # ESO controller: Running
+kubectl get clustersecretstore           # vault-secretstore: InvalidProviderConfig
+kubectl get ns vault                     # NotFound — Vault isn't deployed
+kubectl get externalsecret -n external-dns cloudflare-api-token   # SecretSyncedError
 ```
 
-```bash
-task provision-vault-secrets              # -> kv/alarmify/hub/cloudflared/token
-task provision-vault-secrets VAULT_ENV=dev  # -> kv/alarmify/dev/cloudflared/token
-```
+`templates/cloudflare-api-token-secret.yaml` in this chart already creates an
+`ExternalSecret` (`creationPolicy: Owner`) that expects to read
+`alarmify/hub/cloudflared/token` from Vault. It syncs today — Vault has no backend to read
+from. Until Vault is live, **the Secret it wants to own must be created manually**, or
+external-dns's pod never gets `CF_API_TOKEN` and sits healthy while doing nothing.
 
-Before writing, the task checks the token by listing the zone in `domainFilters`
-(`workquark.org`). That check exists because this chart's failure mode is quiet: with a
-bad token external-dns keeps running and reporting healthy while DNS records silently
-stop being reconciled. Listing the zone also proves the token actually carries `Zone:Read`
-for the zone in question, not merely that it exists.
+> ⚠️ Once Vault + the real secret path exist, delete the manually-created Secret (or just
+> let the `ExternalSecret` resync — `creationPolicy: Owner` will adopt and overwrite it).
+> Re-run `kubectl get externalsecret -n external-dns cloudflare-api-token` after Vault comes
+> up to confirm it flips to `SecretSynced` / `Ready: True`, then this whole runbook section
+> is dead and the manual Secret can go.
 
-> ⚠️ Do **not** switch that check to `/user/tokens/verify`. That endpoint only validates
-> **user-owned** tokens and answers `code 1000 Invalid API Token` for a perfectly valid
-> **account-owned** one (created under Account → API Tokens rather than My Profile → API
-> Tokens) — a false negative that blocks the bootstrap on a working token. Hit 2026-08-06.
+## Runbook: bootstrap `cloudflare-api-token` by hand
 
-Override the zone with `CLOUDFLARE_ZONE=...`, or skip the check with
-`CLOUDFLARE_TOKEN_VERIFY=false`.
+1. **Get a Cloudflare API token** with `Zone:Read` + `DNS:Edit` scoped to `workquark.org`
+   (Cloudflare dashboard → My Profile → API Tokens, or Account → API Tokens for an
+   account-owned token — either works for this flow).
 
-The Vault path is `<mount>/alarmify/<env>/cloudflared/<...>` — the env segment is the
-**Argo CD cluster name** (`local` = management, `dev`), not a deployment stage. An older
-`secret/cloudflare/api-token` path appears in some docs; it is not what this chart reads.
+2. **Verify the token can actually see the zone** before trusting it — a bad token leaves
+   external-dns running and "healthy" while silently never reconciling any record:
 
-### 2. Deploy External DNS
+   ```bash
+   CF_API_TOKEN=your-token-here
+   ZONE=workquark.org
 
-```bash
-# Add the chart repository
-helm repo add external-dns https://kubernetes-sigs.github.io/external-dns/
+   curl -s -H "Authorization: Bearer ${CF_API_TOKEN}" \
+     "https://api.cloudflare.com/client/v4/zones?name=${ZONE}" | jq '.success, .result[].name'
+   ```
 
-# Update dependencies
-helm dependency update
+   > ⚠️ Don't use `/user/tokens/verify` for this check. It only validates **user-owned**
+   > tokens and returns `code 1000 Invalid API Token` for a perfectly valid
+   > **account-owned** token — a false negative on a working token. Hit 2026-08-06, still
+   > true here.
 
-# Install External DNS
-helm upgrade --install external-dns . \
-  --namespace external-dns \
-  --create-namespace \
-  --values values.yaml
-```
+   Expect `true` and `"workquark.org"`. If you get `false` or an empty result, the token is
+   missing `Zone:Read` on that zone — fix it in Cloudflare before continuing.
 
-### 3. Verify Installation
+3. **Create the namespace and Secret directly with kubectl** — this is the step that
+   replaces Vault for now. The Secret name/key must match what `values.yaml`'s
+   `external-dns.env` reads (`cloudflare-api-token` / `api-token`):
 
-```bash
-# Check pod status
-kubectl get pods -n external-dns
+   ```bash
+   export KUBECONFIG=~/.kube/talos-hub.yaml
 
-# Check logs
-kubectl logs -n external-dns deployment/external-dns
+   kubectl create namespace external-dns --dry-run=client -o yaml | kubectl apply -f -
 
-# Check DNS records (after creating an ingress)
-kubectl get ingress -A
-```
+   kubectl create secret generic cloudflare-api-token \
+     --namespace external-dns \
+     --from-literal=api-token="${CF_API_TOKEN}" \
+     --dry-run=client -o yaml | kubectl apply -f -
+   ```
+
+   For `dev`, same command, pointed at that cluster's kubeconfig — `dev` doesn't exist yet
+   per this repo's cluster notes, so skip until it does.
+
+4. **Let ArgoCD sync the rest of the chart** (Deployment, RBAC, ServiceMonitor). The
+   `ExternalSecret` resource will keep reporting `SecretSyncedError` — that's expected and
+   harmless as long as the manually-created Secret above already exists; ESO just can't
+   take ownership of it yet.
+
+5. **Confirm the Deployment actually picked up the token**:
+
+   ```bash
+   kubectl get pods -n external-dns
+   kubectl logs -n external-dns deployment/external-dns | head -30
+   ```
+
+   A token that's missing or wrong shows up as external-dns running cleanly but never
+   creating/updating any DNS record — check Cloudflare's dashboard for the expected record,
+   don't trust pod health alone.
 
 ## Configuration
 
-### Basic Configuration
-
-Values under `external-dns:` are passed to the **upstream** [kubernetes-sigs/external-dns](https://github.com/kubernetes-sigs/external-dns) Helm chart. Use that chart’s keys (flat `sources`, `provider.name`, `env`, etc.); nested keys such as `externalDns` are **not** read by the dependency and are ignored.
+Values under `external-dns:` are passed straight through to the **upstream** chart — use
+its schema (flat `sources`, `provider.name`, `env`, ...). A nested key like `externalDns`
+is silently ignored by the dependency; that mistake previously meant only the default
+sources (`service`, `ingress`) applied and HTTPRoute records were never created.
 
 ```yaml
 external-dns:
   provider:
     name: cloudflare
-
-  env:
-    - name: CF_API_TOKEN
-      valueFrom:
-        secretKeyRef:
-          name: cloudflare-api-token
-          key: api-token
-
-  extraArgs:
-    - --cloudflare-proxied
-
   domainFilters:
     - workquark.org
-
   annotationFilter: external-dns.alpha.kubernetes.io/class=cloudflare
-
   sources:
-    - gateway-httproute   # HTTPRoute objects (not the legacy name "gateway")
+    - gateway-httproute   # HTTPRoute objects — not the legacy name "gateway"
     - service
     - crd
-
-  policy: upsert-only
+  policy: sync
   registry: txt
   txtOwnerId: external-dns
   txtPrefix: external-dns
+  triggerLoopOnEvent: true   # reconcile on HTTPRoute/Service/CRD changes, not just the 1m timer
 ```
 
-### Advanced Configuration
+### Per-cluster TXT registry owner
+
+`hub` and `dev` manage the **same `workquark.org` zone**. `values/dev.yaml` overrides
+`txtOwnerId`/`txtPrefix` to `external-dns-dev` so dev's external-dns doesn't fight the hub
+instance over ownership of the same records. `values/hub.yaml` only carries the
+`cloudflareApiToken.vaultPath` override — hub's `external-dns:` config is the shared
+defaults as-is.
+
+### Cloudflare token, once Vault is live
+
+`templates/cloudflare-api-token-secret.yaml` reads the single property `token` from the
+per-cluster Vault path:
 
 ```yaml
-external-dns:
-  resources:
-    limits:
-      cpu: 100m
-      memory: 128Mi
-    requests:
-      cpu: 50m
-      memory: 64Mi
-
-  podSecurityContext:
-    runAsNonRoot: true
-    fsGroup: 65534
-    seccompProfile:
-      type: RuntimeDefault
-
-  securityContext:
-    allowPrivilegeEscalation: false
-    readOnlyRootFilesystem: true
-    runAsNonRoot: true
-    capabilities:
-      drop: ["ALL"]
-
-  serviceMonitor:
-    enabled: false
+cloudflareApiToken:
+  vaultPath: alarmify/hub/cloudflared/token   # alarmify/dev/cloudflared/token on dev
 ```
 
-## Usage
+It shares the `cloudflared/` prefix with the tunnel credentials but is a separate Vault
+object — `spec.data[]` hands external-dns only the API token, never the tunnel's `cert`,
+so rotating one doesn't touch the other. Seed it with `task provision-vault-secrets` (see
+`helmcharts/cloudflared/README.md`) once Vault exists — that task does the same zone-read
+check as step 2 above before writing.
 
-### 1. Gateway API with External DNS
+## Using external-dns
 
-External-DNS reads hostnames from `spec.hostnames`. This repo sets `annotationFilter` to `external-dns.alpha.kubernetes.io/class=cloudflare`, so **HTTPRoutes must include that annotation** (and usually a tunnel `target` when using Cloudflare Tunnel). Example:
+### HTTPRoute
+
+Must carry the annotation external-dns is filtered on:
 
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
@@ -195,7 +156,7 @@ spec:
     - name: default
       namespace: envoy-gateway-system
   hostnames:
-    - example.workquark.org  # External-DNS will automatically create DNS record
+    - example.workquark.org
   rules:
     - matches:
         - path:
@@ -206,29 +167,7 @@ spec:
           port: 80
 ```
 
-For Gateway resources, use the hostname annotation:
-
-```yaml
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: example-gateway
-  namespace: envoy-gateway-system
-  annotations:
-    external-dns.alpha.kubernetes.io/hostname: gateway.workquark.org
-    external-dns.alpha.kubernetes.io/class: cloudflare
-spec:
-  gatewayClassName: envoy
-  listeners:
-    - name: http
-      protocol: HTTP
-      port: 80
-      allowedRoutes:
-        namespaces:
-          from: All
-```
-
-### 2. Service with External DNS
+### Service
 
 ```yaml
 apiVersion: v1
@@ -242,13 +181,13 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-  - port: 80
-    targetPort: 8080
+    - port: 80
+      targetPort: 8080
   selector:
     app: example
 ```
 
-### 3. DNSEndpoint CRD
+### DNSEndpoint CRD
 
 ```yaml
 apiVersion: external-dns.k8s.io/v1alpha1
@@ -258,183 +197,34 @@ metadata:
   namespace: default
 spec:
   endpoints:
-  - dnsName: "api.workquark.org"
-    recordTTL: 300
-    recordType: "A"
-    targets:
-    - "192.168.1.100"
+    - dnsName: "api.workquark.org"
+      recordTTL: 300
+      recordType: "A"
+      targets:
+        - "192.168.1.100"
 ```
-
-## Monitoring
-
-### Prometheus Metrics
-
-External DNS exposes metrics on port 7979:
-
-```bash
-# Port forward to access metrics
-kubectl port-forward -n external-dns svc/external-dns 7979:7979
-
-# View metrics
-curl http://localhost:7979/metrics
-```
-
-### Key Metrics
-
-- `external_dns_controller_errors_total`: Total number of errors
-- `external_dns_controller_processed_records_total`: Total processed records
-- `external_dns_controller_sync_duration_seconds`: Sync duration
-- `external_dns_controller_instances`: Number of controller instances
-
-### Grafana Dashboard
-
-A Grafana dashboard is available for monitoring External DNS performance and health.
 
 ## Troubleshooting
 
-### Common Issues
-
-#### 1. API Token Issues
+**Token issues** — check the Secret external-dns actually mounted, not the ExternalSecret:
 
 ```bash
-# Check if the secret exists
-kubectl get secret -n external-dns cloudflare-api-token
-
-# Check the secret content
-kubectl get secret -n external-dns cloudflare-api-token -o yaml
+kubectl get secret -n external-dns cloudflare-api-token -o jsonpath='{.data.api-token}' | base64 -d | head -c 10; echo
 ```
 
-#### 2. DNS Records Not Created
+**Records not created** — check logs and that the annotation filter matches:
 
 ```bash
-# Check External DNS logs
 kubectl logs -n external-dns deployment/external-dns
-
-# Check for annotation filters
-kubectl get ingress -A --show-labels
+kubectl get httproute -A -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.annotations}{"\n"}{end}'
 ```
 
-#### 3. Permission Issues
+**Metrics**:
 
 ```bash
-# Check RBAC permissions
-kubectl auth can-i get ingresses --as=system:serviceaccount:external-dns:external-dns
-
-# Check cluster role
-kubectl describe clusterrole external-dns
+kubectl port-forward -n external-dns svc/external-dns 7979:7979
+curl -s http://localhost:7979/metrics | grep external_dns_controller
 ```
 
-### Debug Mode
-
-Enable debug logging:
-
-```yaml
-external-dns:
-  logLevel: "debug"
-  extraArgs:
-    - "--log-format=json"
-```
-
-### Dry Run Mode
-
-Test without making changes:
-
-```yaml
-external-dns:
-  cloudflare:
-    dryRun: true
-```
-
-## Security Considerations
-
-### API Token Security
-
-- Store API token in Vault using External Secrets
-- Use least-privilege API token with only DNS permissions
-- Rotate API tokens regularly
-
-### Network Security
-
-- Use network policies to restrict traffic
-- Enable TLS for metrics endpoint
-- Use service mesh for additional security
-
-### Pod Security
-
-- Runs as non-root user (65534)
-- Read-only root filesystem
-- No privileged capabilities
-- Seccomp profile enabled
-
-## Production Checklist
-
-- [ ] API token stored securely in Vault
-- [ ] External Secrets Operator configured
-- [ ] Monitoring and alerting set up
-- [ ] Resource limits configured
-- [ ] Pod disruption budget enabled
-- [ ] Network policies applied
-- [ ] Backup and disaster recovery plan
-- [ ] Regular security updates
-
-## Support
-
-For issues and questions:
-
-1. Check the [External DNS documentation](https://github.com/kubernetes-sigs/external-dns)
-2. Review the [Cloudflare provider docs](https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/cloudflare.md)
-3. Check Kubernetes logs and events
-4. Verify Vault and External Secrets configuration
-
-## License
-
-This chart is licensed under the Apache 2.0 License.
-
----
-
-## This deployment's configuration
-
-### Use the upstream schema
-
-```yaml
-external-dns:
-  # kubernetes-sigs/external-dns subchart values
-```
-
-> ⚠️ Values **must** use the upstream chart's schema. Nested keys like `externalDns` are
-> silently ignored, which previously meant only the default sources (`service`, `ingress`) were
-> applied — HTTPRoute records were never created.
-
-### Reconcile on events, not just the timer
-
-Configured to reconcile soon after HTTPRoute / Service / CRD changes rather than waiting for the
-interval timer.
-
-### Cloudflare token
-
-Delivered by `templates/cloudflare-api-token-secret.yaml` via External Secrets, which reads
-the single property `token` from the per-cluster path:
-
-```yaml
-cloudflareApiToken:
-  vaultPath: alarmify/hub/cloudflared/token
-```
-
-It shares the `cloudflared/` prefix with the tunnel credentials but is a **separate object**,
-so `spec.data[]` hands external-dns only the API token and never the tunnel's `cert` — and
-rotating the token does not touch the tunnel. Seed it with `task provision-vault-secrets`
-(see [Installation](#1-store-cloudflare-api-token-in-vault)).
-
-> 🔁 This is the dependency that makes [`external-secrets`](../external-secrets/README.md)'s
-> Vault address matter — external-dns needs Vault to get this token, so Vault must not be
-> reachable only through Cloudflare.
-
-### Per-cluster TXT registry owner
-
-Both `hub` and `dev` manage the **same `workquark.org` zone**. Each cluster uses a distinct
-TXT registry owner ID so dev's external-dns does not fight the management instance over
-ownership of the same records.
-
-`values/hub.yaml` has no overrides today — management's config is exactly the shared defaults.
-
-> 📉 CPU limit halved on 2026-07-11: 24h peak usage 2.0m, per VictoriaMetrics.
+> 📉 CPU limit halved on 2026-07-11 (`values.yaml` resources) — 24h peak usage was 2.0m per
+> VictoriaMetrics.

@@ -1,35 +1,29 @@
+# vCluster ApplicationSet
+# Deploys one named vcluster instance per (cluster x list-entry) pair. The clusters generator
+# gates on the `vcluster: "true"` label (see helmcharts/argocd/templates/cluster/hub-cluster-secret.yaml)
+# so only opted-in clusters get vclusters; the list generator enumerates the actual named
+# instances. Add a new vcluster by adding an element here -- never by editing a live Secret.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   name: vcluster
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "4"  # Deploy after core infrastructure and operators
+    argocd.argoproj.io/sync-wave: "4"
 spec:
   generators:
-    # Cluster generator - automatically discovers clusters registered in ArgoCD
-    - clusters:
-        selector:
-          matchLabels:
-            # Deploy to clusters with this label
-            vcluster: "true"
-        values:
-          # Default values for all clusters
-          environment: "production"
-    
-    # Alternative: List generator for explicit cluster definitions
-    # Uncomment this and comment out the clusters generator above if you prefer explicit cluster list
-    # - list:
-    #     elements:
-    #       - cluster: production
-    #         url: https://kubernetes.default.svc
-    #         environment: production
-    #       - cluster: staging
-    #         url: https://staging-cluster.example.com
-    #         environment: staging
-    #       - cluster: development
-    #         url: https://dev-cluster.example.com
-    #         environment: development
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  vcluster: "true"
+          - list:
+              elements:
+                - vclusterName: stayozo-hub
+                  vclusterNamespace: vcluster-stayozo-hub
+                - vclusterName: wion-hub
+                  vclusterNamespace: vcluster-wion-hub
 
   syncPolicy:
     applicationsSync: sync
@@ -37,47 +31,36 @@ spec:
 
   template:
     metadata:
-      name: {{ `"{{name}}-vcluster"` }}
+      name: {{ `"{{name}}-{{vclusterName}}-vcluster"` }}
       namespace: argocd
       labels:
         app.kubernetes.io/name: vcluster
-        app.kubernetes.io/instance: vcluster
+        app.kubernetes.io/instance: {{ `"{{vclusterName}}"` }}
         app.kubernetes.io/component: application
         app.kubernetes.io/part-of: argocd-apps
         app.kubernetes.io/managed-by: Helm
         cluster: {{ `"{{name}}"` }}
-        environment: {{ `"{{values.environment}}"` }}
+        vcluster-name: {{ `"{{vclusterName}}"` }}
       annotations:
         argocd.argoproj.io/managed: "true"
         argocd.argoproj.io/sync-wave: "4"
     spec:
       project: default
-      
+
       source:
         repoURL: git@github.com:defyjoy/ArgoCD.git
         targetRevision: HEAD
         path: helmcharts/vcluster
         helm:
-          # Use the default values.yaml from the helm chart
           valueFiles:
             - values.yaml
-          # Optional: Add cluster-specific values files
-          # Create these files in helmcharts/vcluster/values/<cluster-name>/values.yaml
-          # - {{ `"values/{{name}}/values.yaml"` }}
-          
-          # Minimal parameter overrides (optional)
-          # Use this only for cluster-specific simple overrides
-          # For complex configs, use separate value files above
-          parameters: []
-            # - name: "vcluster.vcluster.name"
-            #   value: {{ `"{{values.vclusterName}}"` }}
-            # - name: "vcluster.vcluster.persistence.size"
-            #   value: {{ `"{{values.persistenceSize}}"` }}
-      
+            - {{ `"values/{{vclusterName}}.yaml"` }}
+          ignoreMissingValueFiles: true
+
       destination:
         server: {{ `"{{server}}"` }}
-        namespace: vcluster
-      
+        namespace: {{ `"{{vclusterNamespace}}"` }}
+
       syncPolicy:
         automated:
           prune: true
@@ -95,37 +78,28 @@ spec:
             duration: 5s
             factor: 2
             maxDuration: 3m
-        
-        # Managed namespace metadata
+
         managedNamespaceMetadata:
           labels:
-            name: vcluster
+            name: {{ `"{{vclusterNamespace}}"` }}
             pod-security.kubernetes.io/enforce: privileged
             pod-security.kubernetes.io/audit: privileged
             pod-security.kubernetes.io/warn: privileged
           annotations:
             argocd.argoproj.io/managed: "true"
-      
-      # Health assessment
-      # vcluster is healthy when the deployment is ready
-      # No custom health checks needed - uses default Kubernetes health
-      
-      # Ignore differences that are expected
+
       ignoreDifferences:
         # StatefulSet persistentVolumeClaimRetentionPolicy.whenScaled defaults to Retain in Kubernetes
-        # even though the chart only explicitly sets whenDeleted
-        # StatefulSet volumeClaimTemplates may change during runtime
+        # even though the chart only explicitly sets whenDeleted; volumeClaimTemplates may change at runtime
         - group: apps
           kind: StatefulSet
           jqPathExpressions:
             - .spec.persistentVolumeClaimRetentionPolicy.whenScaled
             - .spec.volumeClaimTemplates
-        # vcluster deployment may have runtime changes
         - group: apps
           kind: Deployment
           jqPathExpressions:
             - .spec.template.spec.containers[].env[]?.valueFrom.resourceFieldRef
-        # Webhook caBundle may change during runtime
         - group: admissionregistration.k8s.io
           kind: ValidatingWebhookConfiguration
           jqPathExpressions:
@@ -134,16 +108,13 @@ spec:
           kind: MutatingWebhookConfiguration
           jqPathExpressions:
             - .webhooks[]?.clientConfig.caBundle
-        # CRD annotations may be modified by the operator
         - group: apiextensions.k8s.io
           kind: CustomResourceDefinition
           jqPathExpressions:
             - .metadata.annotations
-        # Service annotations may change
         - group: ""
           kind: Service
           jqPathExpressions:
             - .metadata.annotations
-      
-      revisionHistoryLimit: 10
 
+      revisionHistoryLimit: 10

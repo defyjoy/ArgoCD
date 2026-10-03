@@ -12,6 +12,9 @@ gateway:
         namespaces:
           from: All
 
-  # Per-cluster overlay (values/<environment>.yaml) appends its own TCP/TLS listeners here.
-  # Must default to [] rather than being omitted -- gateway.yaml's `concat` helper errors on nil.
   envListeners: []
+
+  tls:
+    enabled: false
+    secretName: ""
+    dnsNames: []

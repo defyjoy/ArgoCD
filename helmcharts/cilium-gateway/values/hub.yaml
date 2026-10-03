@@ -5,3 +5,23 @@ gateway:
 
   externalDns:
     target: 9da192fd-9481-44a4-a379-f205b66549b7.cfargotunnel.com
+
+  tls:
+    enabled: true
+    secretName: home-arpa-tls
+    dnsNames:
+      - "*.home.arpa"
+      - "home.arpa"
+
+  envListeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: home-arpa-tls

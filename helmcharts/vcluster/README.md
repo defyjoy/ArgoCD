@@ -206,15 +206,18 @@ Persistence for the vcluster control plane is configured separately from workloa
 
 `values/wion-hub.yaml` sets `clusterRegistration.enabled: true`, which renders
 `templates/argocd-cluster-registration-job.yaml`: a one-shot Job, in the vcluster's own
-namespace, that copies the `token` and `certificate-authority` out of vcluster's
-**auto-generated** admin Secret (`vc-<release>`, created by the vcluster chart itself — not
-something this repo creates) into a new ArgoCD cluster-registration Secret
-(`<release>-cluster`) in the `argocd` namespace. That's what lets the hub ArgoCD target
+namespace, that copies the `client-certificate`/`client-key`/`certificate-authority` out of
+vcluster's **auto-generated** admin Secret (`vc-<release>`, created by the vcluster chart
+itself — not something this repo creates) into a new ArgoCD cluster-registration Secret
+(`<release>-cluster`) in the `argocd` namespace, using client-cert `tlsClientConfig` auth
+(the same client cert `vcluster connect` uses — this Secret's `token` key is left empty
+unless `exportKubeConfig`'s ServiceAccount-token feature is explicitly enabled, which this
+chart doesn't do). That's what lets the hub ArgoCD target
 `https://<release>.<namespace>.svc.cluster.local` as a destination — see
 [`helmcharts/argocd-apps/templates/applications/wion-hub-argocd.yaml`](../argocd-apps/templates/applications/wion-hub-argocd.yaml)
 for the Application that actually uses it.
 
-This is deliberately the vcluster's **own** cluster-admin-equivalent credential, reused
+This is deliberately the vcluster's **own** cluster-admin-equivalent client cert, reused
 as-is — not a narrower, purpose-minted ServiceAccount token. Same blast radius as running
 `vcluster connect`. Only turn this on for an instance that genuinely needs the host ArgoCD
 managing workloads inside it.

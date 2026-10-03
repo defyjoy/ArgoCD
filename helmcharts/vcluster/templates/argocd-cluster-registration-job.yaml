@@ -133,22 +133,26 @@ spec:
             - -ec
             - |
               set -euo pipefail
+              # vcluster's admin Secret carries a "token" key, but it's left empty unless
+              # exportKubeConfig's ServiceAccount-token feature is explicitly enabled -- this
+              # chart doesn't enable it. The admin kubeconfig vcluster actually issues (and
+              # `vcluster connect` uses) is client-cert auth, so register with that instead.
               for i in $(seq 1 60); do
-                TOKEN_B64="$(kubectl get secret -n "$VCLUSTER_NS" "vc-$RELEASE" -o jsonpath='{.data.token}' 2>/dev/null || true)"
+                CERT_B64="$(kubectl get secret -n "$VCLUSTER_NS" "vc-$RELEASE" -o jsonpath='{.data.client-certificate}' 2>/dev/null || true)"
+                KEY_B64="$(kubectl get secret -n "$VCLUSTER_NS" "vc-$RELEASE" -o jsonpath='{.data.client-key}' 2>/dev/null || true)"
                 CA_B64="$(kubectl get secret -n "$VCLUSTER_NS" "vc-$RELEASE" -o jsonpath='{.data.certificate-authority}' 2>/dev/null || true)"
-                if [ -n "$TOKEN_B64" ] && [ -n "$CA_B64" ]; then
+                if [ -n "$CERT_B64" ] && [ -n "$KEY_B64" ] && [ -n "$CA_B64" ]; then
                   break
                 fi
-                echo "waiting for $VCLUSTER_NS/vc-$RELEASE token+certificate-authority..."
+                echo "waiting for $VCLUSTER_NS/vc-$RELEASE client-certificate/client-key/certificate-authority..."
                 sleep 5
               done
-              if [ -z "${TOKEN_B64:-}" ] || [ -z "${CA_B64:-}" ]; then
-                echo "$VCLUSTER_NS/vc-$RELEASE never produced a token/CA" >&2
+              if [ -z "${CERT_B64:-}" ] || [ -z "${KEY_B64:-}" ] || [ -z "${CA_B64:-}" ]; then
+                echo "$VCLUSTER_NS/vc-$RELEASE never produced a client cert/key/CA" >&2
                 exit 1
               fi
-              TOKEN="$(printf '%s' "$TOKEN_B64" | base64 -d)"
               SERVER="https://${RELEASE}.${VCLUSTER_NS}.svc.cluster.local"
-              CONFIG="$(printf '{"bearerToken":"%s","tlsClientConfig":{"insecure":false,"serverName":"%s","caData":"%s"}}' "$TOKEN" "$RELEASE" "$CA_B64")"
+              CONFIG="$(printf '{"tlsClientConfig":{"insecure":false,"serverName":"%s","caData":"%s","certData":"%s","keyData":"%s"}}' "$RELEASE" "$CA_B64" "$CERT_B64" "$KEY_B64")"
               cat <<EOF | kubectl apply -f -
               apiVersion: v1
               kind: Secret

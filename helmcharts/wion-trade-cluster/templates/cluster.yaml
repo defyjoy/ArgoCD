@@ -1,4 +1,4 @@
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: Cluster
 metadata:
   name: {{ .Values.clusterName | quote }}
@@ -15,11 +15,11 @@ spec:
       cidrBlocks:
         - 10.96.0.0/12
   controlPlaneRef:
-    apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+    apiGroup: controlplane.cluster.x-k8s.io
     kind: TalosControlPlane
     name: {{ printf "%s-control-plane" .Values.clusterName | quote }}
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+    apiGroup: infrastructure.cluster.x-k8s.io
     kind: ProxmoxCluster
     name: {{ .Values.clusterName | quote }}
 ---

@@ -136,3 +136,23 @@ WaitingForCloudInit`, never progressing). It waits for a QEMU guest agent respon
 proceeding, and Talos doesn't implement one (confirmed earlier via `qm guest cmd ... network
 -get-interfaces` -> `"QEMU guest agent is not running"`). `checks.skipQemuGuestAgent: true` on
 both `ProxmoxMachineTemplate`s skips that wait.
+
+## Permanent OutOfSync on `Cluster`/`MachineDeployment`: `apiVersion` vs `apiGroup`
+
+Confirmed live 2026-10-04: `Cluster.spec.{controlPlaneRef,infrastructureRef}` and
+`MachineDeployment.spec.template.spec.{bootstrap.configRef,infrastructureRef}` now use CAPI
+v1beta2's `ContractVersionedObjectReference` (`apiGroup` + `kind` + `name` -- no `apiVersion`,
+no `namespace`), not the older `apiVersion`+`kind`+`name` shape. Submitting the old shape still
+applies fine (the apiserver silently converts it), but every subsequent ArgoCD diff then
+compares git's `apiVersion` field against live's `apiGroup` field forever -- permanent
+OutOfSync with no real drift. Switched `Cluster`/`MachineDeployment` to `apiVersion:
+cluster.x-k8s.io/v1beta2` and `apiGroup` refs to match what's actually served
+(`kubectl api-resources --api-group=cluster.x-k8s.io` confirmed `v1beta2` is current).
+`TalosControlPlane.spec.infrastructureTemplate` is a Talos-provider field, not core CAPI --
+it's unaffected and still correctly uses the older `apiVersion`+`namespace` shape.
+
+Two other OutOfSync entries (`TalosControlPlane`, `ExternalSecret`) are a different, benign
+issue: their CRDs server-default extra optional sub-fields (`init`, `hostname`,
+`conversionStrategy`, etc.) that aren't in our manifest at all -- additive, harmless, and not
+fixable by changing our YAML (CAPI/ESO's own webhooks keep re-adding them regardless). Expect
+these two to stay OutOfSync.

@@ -42,7 +42,7 @@ spec:
       generateType: join
       talosVersion: {{ .Values.talosVersion | quote }}
 ---
-apiVersion: cluster.x-k8s.io/v1beta1
+apiVersion: cluster.x-k8s.io/v1beta2
 kind: MachineDeployment
 metadata:
   name: {{ printf "%s-worker" .Values.clusterName | quote }}
@@ -68,10 +68,10 @@ spec:
       version: {{ .Values.kubernetesVersion | quote }}
       bootstrap:
         configRef:
-          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+          apiGroup: bootstrap.cluster.x-k8s.io
           kind: TalosConfigTemplate
           name: {{ printf "%s-worker-%s" .Values.clusterName .Values.templateRevision | quote }}
       infrastructureRef:
-        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+        apiGroup: infrastructure.cluster.x-k8s.io
         kind: ProxmoxMachineTemplate
         name: {{ printf "%s-worker-%s" .Values.clusterName .Values.templateRevision | quote }}

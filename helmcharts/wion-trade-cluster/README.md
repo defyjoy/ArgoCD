@@ -59,6 +59,19 @@ The registration Job (`templates/argocd-cluster-registration-job.yaml`) assumes 
 present in `registrationJob.kubectlImage` (`docker.io/alpine/k8s:1.31.13`) -- confirm before
 relying on it; swap the image if not.
 
+## `ProxmoxMachineTemplate` is immutable -- bump `templateRevision` to change machine specs
+
+Confirmed live: changing anything under `proxmox.*`/`controlPlane.*`/`worker.*` (numCores,
+sourceNode, network, ...) and re-syncing gets rejected outright --
+`admission webhook ... denied the request: ProxmoxMachineTemplate ... is invalid: spec:
+Forbidden: ProxmoxMachineTemplate is immutable`. This is deliberate CAPI design: you don't
+edit a machine template in place, you create a new one and repoint
+`TalosControlPlane.spec.infrastructureTemplate`/`MachineDeployment...infrastructureRef` at it,
+which rolls out new Machines. `values.yaml`'s `templateRevision` is suffixed onto both
+`ProxmoxMachineTemplate` names for exactly this -- bump it (e.g. `"2"` -> `"3"`) any time you
+change a machine-level value, and ArgoCD's `prune: true` cleans up the orphaned old template
+automatically.
+
 ## Verification
 
 ```bash

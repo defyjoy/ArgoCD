@@ -2,7 +2,7 @@
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: ProxmoxMachineTemplate
 metadata:
-  name: {{ printf "%s-worker" .Values.clusterName | quote }}
+  name: {{ printf "%s-worker-%s" .Values.clusterName .Values.templateRevision | quote }}
   namespace: {{ .Values.namespace | quote }}
   labels:
     app.kubernetes.io/name: wion-trade-cluster
@@ -82,4 +82,4 @@ spec:
       infrastructureRef:
         apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
         kind: ProxmoxMachineTemplate
-        name: {{ printf "%s-worker" .Values.clusterName | quote }}
+        name: {{ printf "%s-worker-%s" .Values.clusterName .Values.templateRevision | quote }}

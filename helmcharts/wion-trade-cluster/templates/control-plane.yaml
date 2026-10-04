@@ -3,7 +3,7 @@
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: ProxmoxMachineTemplate
 metadata:
-  name: {{ printf "%s-control-plane" .Values.clusterName | quote }}
+  name: {{ printf "%s-control-plane-%s" .Values.clusterName .Values.templateRevision | quote }}
   namespace: {{ .Values.namespace | quote }}
   labels:
     app.kubernetes.io/name: wion-trade-cluster
@@ -40,7 +40,7 @@ spec:
   infrastructureTemplate:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
     kind: ProxmoxMachineTemplate
-    name: {{ printf "%s-control-plane" .Values.clusterName | quote }}
+    name: {{ printf "%s-control-plane-%s" .Values.clusterName .Values.templateRevision | quote }}
   controlPlaneConfig:
     controlplane:
       generateType: controlplane

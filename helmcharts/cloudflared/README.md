@@ -469,3 +469,30 @@ The catch-all alone is the safe default: a cluster with no overlay serves nothin
 silently stealing another cluster's hostnames.
 
 `alarmify-ui` is the only dev workload with public exposure today (Option D cutover).
+
+## Exposing a non-Kubernetes host through the tunnel: `vault.workquark.org`
+
+OpenBao (the Vault replacement this org actually runs) lives outside Kubernetes entirely, in a
+Proxmox LXC container (`ct-102` on `pve01`, reachable at `192.168.0.102:8200`), not as a
+cluster Service -- so it can't be routed through `cilium-gateway`/`HTTPRoute` like everything
+else this tunnel
+serves. `values/hub.yaml`'s `ingress` list routes `vault.workquark.org` straight to that IP
+(`noTLSVerify: true` since OpenBao's listener cert there is self-signed, not from a trust chain
+this cluster shares).
+
+`dns.records` (`templates/dns-endpoint.yaml`) exists because external-dns's `gateway-httproute`
+source has nothing to discover here -- there's no `HTTPRoute`, so a plain `DNSEndpoint` CRD
+(external-dns's `crd` source, already enabled in `helmcharts/external-dns`) is the only way to
+get the CNAME record created at all. `dns.cfargotunnelTarget` must match whichever tunnel the
+hostname's `ingress` rule actually lives on.
+
+**This chart only reaches the k8s-side connector pods.** There's a second, independent
+`cloudflared` process running directly on the `pve01` CT (not managed by this repo -- it isn't
+a Kubernetes resource), registered against the *same* tunnel ID. Cloudflare Tunnels with a
+local (non-remote-managed) config don't share config between connectors just because they share
+a tunnel ID -- each connector reads its own file. That means the `vault.workquark.org` ingress
+rule above must also be added, by hand, to that CT's own `config.yml`, or requests landing on
+that connector 404 the same way the old shared-wildcard bug did (see above). Moving this tunnel
+to Cloudflare's remotely-managed config (set once via the dashboard or `cloudflared tunnel
+ingress`) would make this automatic for any future non-k8s host -- worth doing if more of these
+show up.

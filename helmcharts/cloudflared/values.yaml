@@ -4,6 +4,10 @@ externalSecrets:
   enabled: true
   vaultPath: ""
 
+dns:
+  cfargotunnelTarget: ""
+  records: []
+
 cloudflared:
   replica:
     allNodes: false

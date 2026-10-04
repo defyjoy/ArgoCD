@@ -2,9 +2,18 @@ externalSecrets:
   enabled: false
   vaultPath: alarmify/hub/cloudflared/credentials
 
+dns:
+  cfargotunnelTarget: 9da192fd-9481-44a4-a379-f205b66549b7.cfargotunnel.com
+  records:
+    - hostname: vault.workquark.org
+
 cloudflared:
   tunnelConfig:
     name: "hub"
 
   ingress:
+    - hostname: vault.workquark.org
+      service: https://192.168.0.102:8200
+      originRequest:
+        noTLSVerify: true
     - service: http_status:404

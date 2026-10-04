@@ -1,0 +1,19 @@
+{{- range .Values.dns.records }}
+---
+apiVersion: externaldns.k8s.io/v1alpha1
+kind: DNSEndpoint
+metadata:
+  name: {{ .hostname | replace "." "-" }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: cloudflared
+    app.kubernetes.io/component: dns-endpoint
+  annotations:
+    external-dns.alpha.kubernetes.io/class: cloudflare
+spec:
+  endpoints:
+    - dnsName: {{ .hostname | quote }}
+      recordType: CNAME
+      targets:
+        - {{ $.Values.dns.cfargotunnelTarget | quote }}
+{{- end }}

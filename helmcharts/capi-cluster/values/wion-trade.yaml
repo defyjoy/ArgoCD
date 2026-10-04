@@ -1,0 +1,19 @@
+clusterName: wion-trade
+namespace: wion-trade
+
+controlPlaneEndpoint:
+  host: 192.168.9.40
+  port: 6443
+
+controlPlane:
+  sourceNode: pve03
+
+worker:
+  sourceNode: pve04
+
+network:
+  ipv4Addresses:
+    - 192.168.9.50-192.168.9.59
+
+credentialsRef:
+  secretName: wion-trade-proxmox-credentials

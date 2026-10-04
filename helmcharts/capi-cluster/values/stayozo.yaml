@@ -1,0 +1,19 @@
+clusterName: stayozo
+namespace: stayozo
+
+controlPlaneEndpoint:
+  host: 192.168.9.80
+  port: 6443
+
+controlPlane:
+  sourceNode: pve01
+
+worker:
+  sourceNode: pve03
+
+network:
+  ipv4Addresses:
+    - 192.168.9.90-192.168.9.99
+
+credentialsRef:
+  secretName: stayozo-proxmox-credentials

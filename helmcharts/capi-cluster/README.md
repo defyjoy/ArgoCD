@@ -1,17 +1,35 @@
-# wion-hub cluster
+# capi-cluster
 
-Cluster API definition for `wion-hub`: a real (not virtual) Talos cluster on Proxmox VE,
+Generic Cluster API definition for a real (not virtual) Talos cluster on Proxmox VE,
 1 control-plane + 1 worker, provisioned entirely through `hub`'s Argo CD via
 `helmcharts/cluster-api`'s management plane. No Terraform, no `defyjoy/proxmox-talos` repo
 involvement, no manual `clusterctl`/`talosctl` commands at steady state.
+
+Originally built single-purpose as `wion-hub-cluster`. Generalized 2026-10-05 to serve every
+CAPI-provisioned cluster in this homelab (`wion-hub`, `wion-trade`, `stayozo-hub`, `stayozo`)
+from one chart: `values.yaml` holds everything shared (Kubernetes/Talos version, Proxmox
+template/disk/network device defaults, machine sizing, `MachineHealthCheck` thresholds), and
+`values/<clusterName>.yaml` holds everything that must differ per cluster -- `clusterName`,
+`namespace`, `controlPlaneEndpoint.host` (VIP), the Proxmox `sourceNode` for each role, the
+`network.ipv4Addresses` pool, and the per-cluster `credentialsRef.secretName`. One
+`ApplicationSet` (`helmcharts/argocd-apps/templates/applicationsets/capi-clusters-as.yaml`)
+drives all four via a `matrix` generator: the usual `hub`-cluster-secret gate combined with a
+`list` generator of `clusterName`s, so adding a fifth cluster is one new `values/<name>.yaml`
+file plus one new `list` element, not a new chart.
+
+All four clusters share the same Proxmox credential (`credentialsRef.externalSecrets.vaultPath`
+stays in the base `values.yaml`, historically named `wion-hub/...` but not actually specific to
+that cluster) -- pve01/pve03/pve04 are one Proxmox cluster/API endpoint, confirmed live; only
+`sourceNode` (which physical host a given role's VM lands on) varies, spread across the three
+hosts per cluster so no single Proxmox node carries every control-plane or every worker.
 
 ## Why this exists
 
 Replaces the vcluster-hosted nested-ArgoCD approach removed earlier (see git history):
 vcluster's generic CRD sync (needed to get an `HTTPRoute` from inside the virtual cluster onto
 the host Gateway) required a Pro license this org doesn't have. A real cluster has its own
-real Gateway, so that problem doesn't exist here at all -- `wion-hub` just needs its own
-`cilium`/`cilium-gateway`/etc. rollout once it exists, the same way `dev` gets its component
+real Gateway, so that problem doesn't exist here at all -- each of these clusters just needs its
+own `cilium`/`cilium-gateway`/etc. rollout once it exists, the same way `dev` gets its component
 rollout after `docs/runbooks/register-dev-cluster.md` finishes.
 
 ## One manual step: the Proxmox API token
@@ -97,7 +115,7 @@ otherwise.
 export KUBECONFIG=~/.kube/talos-hub.yaml
 kubectl get coreprovider,infrastructureprovider,bootstrapprovider,controlplaneprovider -A
 kubectl get cluster,machine -n wion-hub
-kubectl get secret -n argocd wion-hub-cluster -o jsonpath='{.metadata.labels}'; echo
+kubectl get secret -n argocd capi-cluster -o jsonpath='{.metadata.labels}'; echo
 ```
 
 ## Why the control-plane endpoint is a Talos VIP, not a real machine address

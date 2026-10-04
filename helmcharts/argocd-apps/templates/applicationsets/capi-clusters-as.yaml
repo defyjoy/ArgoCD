@@ -1,19 +1,29 @@
-# The wion-hub Cluster API workload-cluster definition. Gated on `wion-hub-cluster: "true"`
-# (hub-cluster-secret.yaml) and ordered after cluster-api-as.yaml (sync-wave 4) so the
-# InfrastructureProvider/BootstrapProvider/ControlPlaneProvider CRDs it needs already exist.
+# Generic Cluster API workload-cluster ApplicationSet, one Application per entry in the
+# `list` generator below, all sharing `helmcharts/capi-cluster` and differing only by
+# `values/<clusterName>.yaml`. Gated on `capi-clusters: "true"` (hub-cluster-secret.yaml) and
+# ordered after cluster-api-as.yaml (sync-wave 4) so the InfrastructureProvider/
+# BootstrapProvider/ControlPlaneProvider CRDs each cluster needs already exist.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: wion-hub-cluster
+  name: capi-clusters
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "5"
 spec:
   generators:
-    - clusters:
-        selector:
-          matchLabels:
-            wion-hub-cluster: "true"
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  capi-clusters: "true"
+          - list:
+              elements:
+                - clusterName: wion-hub
+                - clusterName: wion-trade
+                - clusterName: stayozo-hub
+                - clusterName: stayozo
 
   syncPolicy:
     applicationsSync: sync
@@ -21,7 +31,7 @@ spec:
 
   template:
     metadata:
-      name: {{ `"{{name}}-wion-hub-cluster"` }}
+      name: {{ `"{{clusterName}}-capi-cluster"` }}
       namespace: argocd
       labels:
         cluster: {{ `"{{name}}"` }}
@@ -33,15 +43,15 @@ spec:
       source:
         repoURL: git@github.com:defyjoy/ArgoCD.git
         targetRevision: HEAD
-        path: helmcharts/wion-hub-cluster
+        path: helmcharts/capi-cluster
         helm:
           valueFiles:
             - values.yaml
-            - {{ `"values/{{metadata.labels.environment}}.yaml"` }}
+            - {{ `"values/{{clusterName}}.yaml"` }}
           ignoreMissingValueFiles: true
       destination:
         server: {{ `"{{server}}"` }}
-        namespace: wion-hub
+        namespace: {{ `"{{clusterName}}"` }}
       syncPolicy:
         automated:
           prune: true

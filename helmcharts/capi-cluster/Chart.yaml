@@ -1,0 +1,6 @@
+apiVersion: v2
+name: capi-cluster
+description: Generic Cluster API cluster definition (Proxmox + Talos, 1 control-plane + 1 worker) parameterized per cluster via values/<cluster>.yaml
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

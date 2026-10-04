@@ -46,8 +46,10 @@ These manifests were written from upstream docs, not validated against a live cl
 double check against the installed CRDs (`kubectl explain infrastructureprovider.spec` etc.)
 before trusting them blind on first apply:
 
-- Provider versions (`values.yaml`'s `providers.*.version`) are the latest known at write time
-  -- bump as needed, `cluster-api-operator` will reconcile the version change.
+- Provider versions (`values.yaml`'s `providers.*.version`) are each confirmed against that
+  provider's own GitHub releases as of 2026-10-04 -- the bootstrap and control-plane Talos
+  providers are **separate repos with independent version numbers** (`v0.6.8` vs `v0.5.14`);
+  don't assume they match. Bump as needed, `cluster-api-operator` will reconcile the change.
 - CAPMOX's per-cluster `credentialsRef` Secret (consumed by `helmcharts/wion-trade-cluster`, not
   this chart) uses different key names (`url`/`token`/`secret`, lowercase) than this chart's
   env-var-shaped provider-level Secret -- don't conflate the two when debugging auth failures.

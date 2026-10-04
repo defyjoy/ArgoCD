@@ -11,7 +11,7 @@ providers:
   infrastructure:
     name: proxmox
     namespace: capmox-system
-    version: v0.10.0
+    version: v0.9.1
   bootstrap:
     name: talos
     namespace: cabpt-system
@@ -19,7 +19,7 @@ providers:
   controlPlane:
     name: talos
     namespace: cacppt-system
-    version: v0.6.8
+    version: v0.5.14
 
 proxmoxCredentials:
   secretName: proxmox-credentials

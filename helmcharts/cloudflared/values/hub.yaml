@@ -1,4 +1,5 @@
 externalSecrets:
+  enabled: false
   vaultPath: alarmify/hub/cloudflared/credentials
 
 cloudflared:

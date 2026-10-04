@@ -263,3 +263,30 @@ deliberately the bare `https://<host>:8006` -- CAPMOX's own provider wants no su
 builds a path that doesn't exist on the bare host. Append `/api2/json` only inside this chart's
 own CCM config template, not the shared Vault value -- the two providers want genuinely
 different URL shapes from the same credential.
+
+## `MachineHealthCheck`: nothing remediated the stuck-`Provisioning` failure mode above on its own
+
+Confirmed live 2026-10-04: a control-plane `Machine` (template rev 8, pre-`providerID` fix above)
+went network-dead mid-rollout -- `talosctl`/apid port 50000 and ICMP both timing out, Node never
+registered -- and just sat in `Phase: Provisioned` indefinitely. `TalosControlPlane`'s own
+scale-down logic requires `ControlPlaneComponentsHealthy`/`EtcdClusterHealthy` across *every*
+current `Machine` before it will delete the surplus one, so an unreachable old `Machine` wedges
+the rollout forever with no automatic recovery -- etcd itself had already dropped the dead
+member and was healthy on just the surviving node, but the stale `Machine` object never got
+cleaned up. There was no `MachineHealthCheck` for this cluster at all to catch it.
+
+```yaml
+machineHealthCheck:
+  nodeStartupTimeoutSeconds: 600
+  unhealthyConditionTimeoutSeconds: 300
+```
+
+`templates/machinehealthcheck.yaml` selects every `Machine` in the cluster via the
+`cluster.x-k8s.io/cluster-name` label CAPI already sets on all of them (control-plane and
+worker alike) -- one `MachineHealthCheck`, not a pair, since both roles should get the same
+unreachable-node treatment. `nodeStartupTimeoutSeconds` (CAPI default: 10 minutes) covers the
+"`Machine` never got a Node at all" case from the `providerID` section above; the `Ready`
+`Unknown`/`False` `unhealthyNodeConditions` at 5 minutes cover a `Machine` that joined fine and
+then went dark later, like this one did. No `remediation.templateRef` is set, so the controller
+marks `OwnerRemediated` on the unhealthy `Machine` and lets `TalosControlPlane`/`MachineDeployment`
+delete-and-replace it themselves -- the same path a healthy rolling update already uses.

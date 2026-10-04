@@ -44,6 +44,10 @@ credentialsRef:
   externalSecrets:
     vaultPath: wion-trade/hub/cluster-api/proxmox-credentials
 
+machineHealthCheck:
+  nodeStartupTimeoutSeconds: 600
+  unhealthyConditionTimeoutSeconds: 300
+
 registrationJob:
   kubectlImage: docker.io/alpine/k8s:1.31.13
   argocdNamespace: argocd

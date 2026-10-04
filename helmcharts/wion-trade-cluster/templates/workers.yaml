@@ -24,7 +24,7 @@ spec:
           - name: net0
             bridge: {{ .Values.proxmox.network.bridge | quote }}
             model: {{ .Values.proxmox.network.model | quote }}
-            defaultIPv4: true
+            defaultIPv4: false
             ipPoolRef:
               - apiGroup: ipam.cluster.x-k8s.io
                 kind: InClusterIPPool

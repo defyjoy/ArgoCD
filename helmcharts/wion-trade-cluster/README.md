@@ -114,3 +114,11 @@ Talos was never actually configured with), and the control plane could never boo
 `"no addresses were found for node"`, forever. `templates/ip-pools.yaml` gives each role its
 own single-address `InClusterIPPool` (exactly `controlPlane.ip`/`worker.ip`), so the only thing
 IPAM *can* claim is the same address Talos's `strategicPatches` configures in-guest.
+
+`defaultIPv4` on each `networkDevice` is `false`, not `true` -- confirmed live: CAPMOX's
+`ip.go` appends the *cluster-level* `ipv4Config` pool as an **extra** claim whenever
+`defaultIPv4: true`, on top of whatever `ipPoolRef` already specifies (`slices.Concat(pools,
+ipPoolRef)`), producing two IPAddressClaims per device and reporting the wrong one
+(`Machine.status.addresses` picked the cluster-pool claim, not ours). `false` leaves only our
+pinned per-role pool's claim. Gateway/routing still works -- our `InClusterIPPool`s each carry
+their own `gateway`, and Talos's `strategicPatches` set the route directly regardless.

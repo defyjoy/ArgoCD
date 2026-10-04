@@ -201,3 +201,37 @@ already `true`): extract the `<cluster>-talosconfig` Secret and run `talosctl --
 ... -n <new-cp-ip> bootstrap` directly against the orphaned node. Avoid needing this at all by
 preferring a rolling replacement (scale up, let the new Machine join, then delete the old one)
 over bulk-deleting the only control-plane Machine, whenever this cluster stays single-CP.
+
+## `cloud-provider=external` alone never sets `providerID` -- needs an actual CCM
+
+Confirmed live: with `cluster.externalCloudProvider.enabled: true`, kubelet gets
+`--cloud-provider=external` (`talosctl ... processes` showed the flag), but that flag's whole
+contract is that kubelet does **not** set `spec.providerID` or clear the
+`node.cloudprovider.kubernetes.io/uninitialized` taint itself -- it waits for a real
+cloud-controller-manager to do both. `talosctl get kubeletspec` confirmed no `--provider-id`
+arg ever gets added by Talos regardless of this setting; CAPMOX's own docs
+(`docs/migration-v0.8-v1alpha2.md`) only document a `kubeadm`-style fix
+(`kubeletExtraArgs.provider-id: "proxmox://'{{ ds.meta_data.instance_id }}'"`, templated by
+cloud-init's own Jinja engine at boot) which has no Talos equivalent -- Talos's bootstrap
+provider can't bake a per-VM dynamic UUID into a static `strategicPatches` string at git-render
+time, since the UUID doesn't exist until Proxmox creates the VM.
+
+Fixed by actually deploying `sergelogvinov/proxmox-cloud-controller-manager`, which has
+first-class CAPMOX support (`config.features.provider: capmox` -> matches providerID in the
+exact `proxmox://<SystemUUID>` form `metadataSettings.providerIDInjection` produces) and runs
+the standard Kubernetes `cloud-node` controller, which looks up each new Node's matching
+Proxmox VM and sets `providerID`/clears the taint itself -- no kubelet-side involvement needed
+at all. Delivered via `templates/ccm-resourceset.yaml`: an `ExternalSecret` templates the whole
+manifest bundle (RBAC, Deployment, and a `Secret` with the real Vault-sourced Proxmox API
+token) into one Secret of type `addons.cluster.x-k8s.io/resource-set`, and a
+`ClusterResourceSet` (core CAPI, already installed by `cluster-api-operator`'s `CoreProvider`
+-- no extra provider needed, confirmed via `kubectl api-resources --api-group=addons.cluster.x-k8s.io`)
+applies it into `wion-trade` itself. `ClusterResourceSet.spec.clusterSelector` matches on the
+`Cluster` object's own labels, which don't get a `cluster.x-k8s.io/cluster-name` label by
+default -- added explicitly in `templates/cluster.yaml`.
+
+Only enable the `cloud-node` controller (not just `cloud-node-lifecycle`, which is all the
+project's own static Talos example manifest enables, `docs/deploy/cloud-controller-manager-talos.yml`
+-- that example assumes something else sets `providerID`, which doesn't apply to a CAPMOX-managed
+cluster): `cloud-node` is specifically the controller that sets `providerID` on a brand new
+Node, confirmed via `docs/install.md`'s own description of step 3 of the join sequence.

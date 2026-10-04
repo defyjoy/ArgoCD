@@ -1,0 +1,238 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: {{ printf "%s-ccm-resources" .Values.clusterName | quote }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: ccm
+  annotations:
+    argocd.argoproj.io/managed: "true"
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-secretstore
+    kind: ClusterSecretStore
+  target:
+    name: {{ printf "%s-ccm-resources" .Values.clusterName | quote }}
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    # type must be exactly this -- ClusterResourceSet's controller only picks up Secrets/
+    # ConfigMaps of this type, silently ignoring anything else (confirmed via
+    # `kubectl explain clusterresourceset.spec.resources`).
+    template:
+      type: addons.cluster.x-k8s.io/resource-set
+      engineVersion: v2
+      data:
+        ccm.yaml: |
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: proxmox-cloud-controller-manager
+            namespace: kube-system
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: system:proxmox-cloud-controller-manager
+          rules:
+            - apiGroups: ["coordination.k8s.io"]
+              resources: ["leases"]
+              verbs: ["get", "create", "update"]
+            - apiGroups: [""]
+              resources: ["events"]
+              verbs: ["create", "patch", "update"]
+            - apiGroups: [""]
+              resources: ["nodes"]
+              verbs: ["get", "list", "watch", "update", "patch", "delete"]
+            - apiGroups: [""]
+              resources: ["nodes/status"]
+              verbs: ["patch"]
+            - apiGroups: [""]
+              resources: ["serviceaccounts"]
+              verbs: ["create", "get"]
+            - apiGroups: [""]
+              resources: ["serviceaccounts/token"]
+              verbs: ["create"]
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: system:proxmox-cloud-controller-manager
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: system:proxmox-cloud-controller-manager
+          subjects:
+            - kind: ServiceAccount
+              name: proxmox-cloud-controller-manager
+              namespace: kube-system
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: RoleBinding
+          metadata:
+            name: system:proxmox-cloud-controller-manager:extension-apiserver-authentication-reader
+            namespace: kube-system
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: Role
+            name: extension-apiserver-authentication-reader
+          subjects:
+            - kind: ServiceAccount
+              name: proxmox-cloud-controller-manager
+              namespace: kube-system
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: proxmox-cloud-controller-manager
+            namespace: kube-system
+          type: Opaque
+          stringData:
+            config.yaml: |
+              features:
+                provider: capmox
+              clusters:
+                - url: {{ `"{{ .url }}"` }}
+                  insecure: false
+                  token_id: {{ `"{{ .tokenId }}"` }}
+                  token_secret: {{ `"{{ .tokenSecret }}"` }}
+                  region: {{ .Values.clusterName | quote }}
+          ---
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: proxmox-cloud-controller-manager
+            namespace: kube-system
+            labels:
+              app.kubernetes.io/name: proxmox-cloud-controller-manager
+          spec:
+            replicas: 1
+            strategy:
+              type: RollingUpdate
+              rollingUpdate:
+                maxUnavailable: 1
+            selector:
+              matchLabels:
+                app.kubernetes.io/name: proxmox-cloud-controller-manager
+            template:
+              metadata:
+                labels:
+                  app.kubernetes.io/name: proxmox-cloud-controller-manager
+              spec:
+                enableServiceLinks: false
+                priorityClassName: system-cluster-critical
+                serviceAccountName: proxmox-cloud-controller-manager
+                securityContext:
+                  fsGroup: 10258
+                  fsGroupChangePolicy: OnRootMismatch
+                  runAsGroup: 10258
+                  runAsNonRoot: true
+                  runAsUser: 10258
+                  seccompProfile:
+                    type: RuntimeDefault
+                containers:
+                  - name: proxmox-cloud-controller-manager
+                    securityContext:
+                      allowPrivilegeEscalation: false
+                      capabilities:
+                        drop: ["ALL"]
+                      seccompProfile:
+                        type: RuntimeDefault
+                    image: ghcr.io/sergelogvinov/proxmox-cloud-controller-manager:v0.16.1
+                    imagePullPolicy: IfNotPresent
+                    args:
+                      - --v=2
+                      - --cloud-provider=proxmox
+                      - --cloud-config=/etc/proxmox/config.yaml
+                      - --controllers=cloud-node,cloud-node-lifecycle
+                      - --leader-elect-resource-name=cloud-controller-manager-proxmox
+                      - --use-service-account-credentials
+                      - --secure-port=10258
+                      - --authorization-always-allow-paths=/healthz,/livez,/readyz,/metrics
+                    env:
+                      - name: SERVICE_ACCOUNT
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: spec.serviceAccountName
+                    ports:
+                      - name: metrics
+                        containerPort: 10258
+                        protocol: TCP
+                    livenessProbe:
+                      httpGet:
+                        path: /healthz
+                        port: metrics
+                        scheme: HTTPS
+                      initialDelaySeconds: 20
+                      periodSeconds: 30
+                      timeoutSeconds: 5
+                    resources:
+                      requests:
+                        cpu: 10m
+                        memory: 32Mi
+                      limits:
+                        cpu: 20m
+                        memory: 64Mi
+                    volumeMounts:
+                      - name: cloud-config
+                        mountPath: /etc/proxmox
+                        readOnly: true
+                affinity:
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                        - matchExpressions:
+                            - key: node-role.kubernetes.io/control-plane
+                              operator: Exists
+                tolerations:
+                  - effect: NoSchedule
+                    key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+                  - effect: NoSchedule
+                    key: node.cloudprovider.kubernetes.io/uninitialized
+                    operator: Exists
+                volumes:
+                  - name: cloud-config
+                    secret:
+                      secretName: proxmox-cloud-controller-manager
+                      defaultMode: 0416
+  data:
+    - secretKey: url
+      remoteRef:
+        key: {{ .Values.credentialsRef.externalSecrets.vaultPath | quote }}
+        property: url
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None
+    - secretKey: tokenId
+      remoteRef:
+        key: {{ .Values.credentialsRef.externalSecrets.vaultPath | quote }}
+        property: token_id
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None
+    - secretKey: tokenSecret
+      remoteRef:
+        key: {{ .Values.credentialsRef.externalSecrets.vaultPath | quote }}
+        property: token_secret
+        conversionStrategy: Default
+        decodingStrategy: None
+        metadataPolicy: None
+---
+apiVersion: addons.cluster.x-k8s.io/v1beta2
+kind: ClusterResourceSet
+metadata:
+  name: {{ printf "%s-ccm" .Values.clusterName | quote }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: ccm
+spec:
+  clusterSelector:
+    matchLabels:
+      cluster.x-k8s.io/cluster-name: {{ .Values.clusterName | quote }}
+  strategy: Reconcile
+  resources:
+    - kind: Secret
+      name: {{ printf "%s-ccm-resources" .Values.clusterName | quote }}

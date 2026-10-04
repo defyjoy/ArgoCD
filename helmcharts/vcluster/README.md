@@ -198,6 +198,38 @@ directions:
 - **virtual → host** — resources the vcluster creates that must materialise on the host
 - **host → virtual** — host resources made visible inside the vcluster
 
+### HTTPRoute sync — Gateway API from inside the vcluster
+
+Cilium (CNI + the Gateway API dataplane) only runs on the host cluster — a vcluster has no
+nodes of its own, so there's no way to run a second Cilium Gateway controller inside it. But
+`sync.toHost.pods`/`services` already make vcluster workloads real pods/Services on hub with
+real Cilium networking, so the only missing piece is the `HTTPRoute` object itself:
+
+```yaml
+customResources:
+  httproutes.gateway.networking.k8s.io:
+    enabled: true
+    patches:
+      - path: spec.rules[*].backendRefs[*].name
+        reference:
+          apiVersion: v1
+          kind: Service
+```
+
+This generic CRD sync copies any `HTTPRoute` created against the vcluster's own API server up
+to the host namespace, where the single shared `cilium-gateway` Gateway
+(`helmcharts/cilium-gateway`) reconciles it — same "one Gateway per cluster, every `HTTPRoute`
+attaches via `parentRefs`" pattern every other chart uses (see
+`helmcharts/airflow/templates/httproute.yaml`). The `reference` patch is required because
+vcluster renames synced Services (e.g. `<svc>-x-<ns>-x-wion-hub`); without it `backendRefs.name`
+would still hold the tenant's unprefixed name and dangle. `parentRefs` is deliberately **not**
+patched — it already names the real host `cilium-gateway`/`cilium-gateway` Gateway, which exists
+only on the host, not inside the vcluster.
+
+No per-instance cloudflared or external-dns is needed: both already run once on hub and watch
+Gateway API objects cluster-wide, so a tenant HTTPRoute picks up DNS/tunnel exposure for free
+once it's synced and accepted.
+
 ### Control-plane persistence
 
 Persistence for the vcluster control plane is configured separately from workload storage.

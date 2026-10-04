@@ -228,3 +228,13 @@ curl -s http://localhost:7979/metrics | grep external_dns_controller
 
 > 📉 CPU limit halved on 2026-07-11 (`values.yaml` resources) — 24h peak usage was 2.0m per
 > VictoriaMetrics.
+
+## Adding a second domain: `domainFilters`
+
+`domainFilters` is a hard allow-list -- a hostname outside it (e.g. anything on
+`wion.trade`) gets silently skipped, not an error. `wion.trade` was added alongside
+`workquark.org` for the nested ArgoCD exposed at `argocd.wion.trade` (see
+`helmcharts/argocd/values-nested.yaml`). The Cloudflare API token this chart uses must also
+have `Zone:Read`/`DNS:Edit` on the new zone -- adding the domain here alone does nothing if the
+token can't see that zone (same false-healthy trap as the `cloudflare-api-token` bootstrap
+runbook above: verify with the `zones?name=` curl check before trusting it).

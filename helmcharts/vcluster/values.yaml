@@ -32,6 +32,14 @@ vcluster:
         enabled: false
       persistentVolumes:
         enabled: false
+      customResources:
+        httproutes.gateway.networking.k8s.io:
+          enabled: true
+          patches:
+            - path: spec.rules[*].backendRefs[*].name
+              reference:
+                apiVersion: v1
+                kind: Service
 
     fromHost:
       events:

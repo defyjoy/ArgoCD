@@ -1,0 +1,28 @@
+{{- if and .Values.enabled .Values.letsEncryptClusterIssuer.enabled }}
+{{- $s := .Values.letsEncryptClusterIssuer }}
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ $s.clusterIssuerName | quote }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  labels:
+    app.kubernetes.io/name: cert-manager
+    app.kubernetes.io/component: letsencrypt-clusterissuer
+spec:
+  acme:
+    email: {{ $s.email | quote }}
+    server: {{ $s.acmeServer | quote }}
+    privateKeySecretRef:
+      name: {{ $s.accountKeySecretName | quote }}
+    solvers:
+      - http01:
+          gatewayHTTPRoute:
+            parentRefs:
+              - group: gateway.networking.k8s.io
+                kind: Gateway
+                name: {{ $s.gatewayHttp01.parentRef.name | quote }}
+                namespace: {{ $s.gatewayHttp01.parentRef.namespace | quote }}
+                sectionName: {{ $s.gatewayHttp01.parentRef.sectionName | quote }}
+{{- end }}

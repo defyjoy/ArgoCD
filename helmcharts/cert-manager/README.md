@@ -334,3 +334,15 @@ For support and questions:
 - Check the [cert-manager Documentation](https://cert-manager.io/docs/)
 - Visit the [cert-manager GitHub Issues](https://github.com/cert-manager/cert-manager/issues)
 - Join the [cert-manager Slack](https://kubernetes.slack.com/channels/cert-manager)
+
+## Public ACME: `letsEncryptClusterIssuer`
+
+`stepCaAcmeClusterIssuer` issues certs trusted only inside this LAN (step-ca root). For a
+real public domain -- e.g. `argocd.wion.trade`, exposed via `helmcharts/cilium-gateway`'s
+`gateway.publicCertificates` -- certs need to come from a publicly-trusted CA instead.
+`letsEncryptClusterIssuer` is the same HTTP-01-via-Gateway shape as the step-ca issuer, pointed
+at Let's Encrypt's production ACME endpoint. Enabled on `hub` only (`values/hub.yaml`) with the
+account email that gets expiry/revocation notices.
+
+Rate limits are real (Let's Encrypt caps certs per registered domain per week) -- don't point
+many throwaway `Certificate`s at this issuer while testing.

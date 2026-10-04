@@ -13,6 +13,12 @@ gateway:
       - "*.home.arpa"
       - "home.arpa"
 
+  publicCertificates:
+    - secretName: wion-trade-tls
+      clusterIssuerName: letsencrypt
+      dnsNames:
+        - argocd.wion.trade
+
   envListeners:
     - name: https
       protocol: HTTPS
@@ -25,3 +31,5 @@ gateway:
         certificateRefs:
           - kind: Secret
             name: home-arpa-tls
+          - kind: Secret
+            name: wion-trade-tls

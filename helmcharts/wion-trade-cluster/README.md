@@ -173,3 +173,31 @@ providerIDInjection: true` (confirmed via CAPMOX source, `pkg/cloudinit/metadata
 cloud-init metadata include `provider-id: proxmox://<instanceID>`, which Talos's `nocloud`
 platform picks up and sets on the kubelet -- without it, CAPMOX's own default is `false`, and
 every Machine blocks here forever regardless of how healthy the actual node is.
+
+Confirmed live this alone is still not sufficient: `talosctl get platformmetadata` showed the
+correct `providerId: proxmox://<uuid>` even with injection on, but `talosctl -n <ip> processes`
+showed the running `kubelet` with **no `--provider-id` flag at all**, and `talosctl get
+kubeletconfig` showed `cloudProviderExternal: false`. Talos only wires the platform metadata's
+provider ID into the kubelet's `--provider-id` flag when the machine config has `cluster.
+externalCloudProvider.enabled: true` -- without it, the metadata is correct but nothing ever
+reads it. Added as a `strategicPatches` entry to both the `TalosControlPlane.controlPlaneConfig`
+(updates in place) and the worker `TalosConfigTemplate` (immutable, needed the `templateRevision`
+bump to `"9"`).
+
+## Deleting the sole control-plane `Machine` destroys etcd -- don't bulk-delete on a single-CP cluster
+
+The documented `kubectl delete machine -n wion-trade --all` cleanup step (above) is only safe
+for a true HA control plane where other etcd members survive the delete. On this 1-CP cluster it
+isn't: deleting the one control-plane `Machine` deletes its VM (and etcd's data dir on that VM)
+without CAPI ever getting a chance to run `talosctl etcd remove-member` first. The replacement
+`Machine` comes up with an empty etcd data dir and nothing to join -- `talosctl service etcd`
+sits in `Preparing`/`Running pre state` forever, and `TalosControlPlane.status.bootstrapped`
+is already `true` from the original revision, so the control-plane provider never re-triggers
+`talosctl bootstrap` for it. Confirmed live via `talosctl --talosconfig <kcp-secret> -n <cp-ip>
+get etcdmember` returning zero rows.
+
+Recovery (manual, since nothing in CAPI will do this automatically once `bootstrapped` is
+already `true`): extract the `<cluster>-talosconfig` Secret and run `talosctl --talosconfig
+... -n <new-cp-ip> bootstrap` directly against the orphaned node. Avoid needing this at all by
+preferring a rolling replacement (scale up, let the new Machine join, then delete the old one)
+over bulk-deleting the only control-plane Machine, whenever this cluster stays single-CP.

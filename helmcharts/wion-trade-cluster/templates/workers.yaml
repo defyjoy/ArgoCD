@@ -43,6 +43,11 @@ spec:
     spec:
       generateType: join
       talosVersion: {{ .Values.talosVersion | quote }}
+      strategicPatches:
+        - |
+          cluster:
+            externalCloudProvider:
+              enabled: true
 ---
 apiVersion: cluster.x-k8s.io/v1beta2
 kind: MachineDeployment

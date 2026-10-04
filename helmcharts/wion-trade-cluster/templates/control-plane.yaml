@@ -63,6 +63,9 @@ spec:
                 - interface: eth0
                   vip:
                     ip: {{ .Values.controlPlaneEndpoint.host | quote }}
+          cluster:
+            externalCloudProvider:
+              enabled: true
     init:
       generateType: ""
       hostname: {}

@@ -50,6 +50,7 @@ spec:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
     kind: ProxmoxMachineTemplate
     name: {{ printf "%s-control-plane-%s" .Values.clusterName .Values.templateRevision | quote }}
+    namespace: {{ .Values.namespace | quote }}
   controlPlaneConfig:
     controlplane:
       generateType: controlplane

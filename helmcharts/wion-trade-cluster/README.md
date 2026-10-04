@@ -162,6 +162,18 @@ and known (`init: {generateType: "", hostname: {}}`, `controlplane.hostname: {}`
 `ExternalSecret` `remoteRef`), declaring them explicitly in git removes the diff entirely --
 no `ignoreDifferences` needed, git just matches what's actually live.
 
+A third, later OutOfSync on `TalosControlPlane` turned out to be neither: `spec.
+infrastructureTemplate` is a single atomic struct fully owned by `argocd-controller`
+(`metadata.managedFields` confirmed this -- not split per-subfield, and no other manager
+touches it), and the CRD schema has no `default:` on `infrastructureTemplate.namespace`
+either (checked directly via `kubectl get crd ... -o json`). The actual source is a mutating
+admission webhook belonging to the Talos control-plane provider that defaults a cross-namespace
+reference's `namespace` to the CR's own namespace whenever the submitted manifest omits it --
+old-style CAPI convenience default, applied before storage, so it lands inside *our own*
+managedFields entry rather than a separate manager's. Fixed the same way as the schema-default
+case above: declared `namespace` explicitly on `infrastructureTemplate` so git matches what the
+webhook was already producing live.
+
 ## Machines stuck forever `Provisioning`/`Ready: Unknown`: missing `providerID`
 
 Confirmed live: both `Machine`s sat indefinitely with `NodeHealthy: Waiting for a Node with

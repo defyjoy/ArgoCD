@@ -38,8 +38,7 @@ network:
   dnsServers:
     - 192.168.9.1
   ipv4Addresses:
-    - 192.168.9.10
-    - 192.168.9.11
+    - 192.168.9.20-192.168.9.29
 
 credentialsRef:
   secretName: wion-trade-proxmox-credentials

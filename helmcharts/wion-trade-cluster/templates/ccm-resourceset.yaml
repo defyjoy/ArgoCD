@@ -93,7 +93,7 @@ spec:
               features:
                 provider: capmox
               clusters:
-                - url: {{ `"{{ .url }}"` }}
+                - url: {{ `"{{ .url }}/api2/json"` }}
                   insecure: true
                   token_id: {{ `"{{ .tokenId }}"` }}
                   token_secret: {{ `"{{ .tokenSecret }}"` }}

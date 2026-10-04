@@ -242,3 +242,12 @@ by unknown authority` (CCM pod logs). Proxmox here uses its default self-signed 
 every other self-signed endpoint in this homelab (OpenBao, etc.) -- CAPMOX's own core/infra
 provider doesn't expose an `insecure` toggle at all in this chart and apparently tolerates it
 some other way, but the CCM's Go client does TLS verification and needs telling explicitly.
+
+Second, separate error after that: `proxmox API error 500: 500 no such file '/cluster/resources'`.
+The shared Vault `url` property (`wion-trade/hub/cluster-api/proxmox-credentials`) is
+deliberately the bare `https://<host>:8006` -- CAPMOX's own provider wants no suffix (see
+`helmcharts/cluster-api/README.md`). The CCM's client instead expects the full
+`https://<host>:8006/api2/json` form (matches its own `docs/config.md` example) and otherwise
+builds a path that doesn't exist on the bare host. Append `/api2/json` only inside this chart's
+own CCM config template, not the shared Vault value -- the two providers want genuinely
+different URL shapes from the same credential.

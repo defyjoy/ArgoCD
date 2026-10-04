@@ -1,0 +1,60 @@
+# NOTE: ProxmoxMachineTemplate.spec.template.spec field names below are a best-effort read of
+# upstream CAPMOX docs, not yet validated against a live CRD. Run `kubectl explain
+# proxmoxmachinetemplate.spec.template.spec --recursive` against the installed CRD (once
+# helmcharts/cluster-api's InfrastructureProvider is Ready) and fix field names here before the
+# first real apply -- see helmcharts/cluster-api/README.md "Known-unverified pieces".
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+kind: ProxmoxMachineTemplate
+metadata:
+  name: {{ printf "%s-control-plane" .Values.clusterName | quote }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: control-plane
+spec:
+  template:
+    spec:
+      sourceNode: {{ .Values.proxmox.sourceNode | quote }}
+      templateID: {{ .Values.proxmox.templateID }}
+      numSockets: {{ .Values.controlPlane.numSockets }}
+      numCores: {{ .Values.controlPlane.numCores }}
+      memoryMiB: {{ .Values.controlPlane.memoryMiB }}
+      disks:
+        bootVolume:
+          disk: scsi0
+          sizeGb: {{ .Values.proxmox.disk.sizeGiB }}
+      network:
+        default:
+          bridge: {{ .Values.proxmox.network.bridge | quote }}
+          model: {{ .Values.proxmox.network.model | quote }}
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
+kind: TalosControlPlane
+metadata:
+  name: {{ printf "%s-control-plane" .Values.clusterName | quote }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: control-plane
+spec:
+  version: {{ .Values.kubernetesVersion | quote }}
+  replicas: {{ .Values.controlPlane.replicas }}
+  infrastructureTemplate:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+    kind: ProxmoxMachineTemplate
+    name: {{ printf "%s-control-plane" .Values.clusterName | quote }}
+  controlPlaneConfig:
+    controlplane:
+      generateType: controlplane
+      talosVersion: {{ .Values.talosVersion | quote }}
+      configPatches:
+        - op: add
+          path: /machine/network/interfaces
+          value:
+            - interface: eth0
+              addresses:
+                - {{ printf "%s/%v" .Values.controlPlane.ip .Values.network.prefix | quote }}
+              routes:
+                - network: 0.0.0.0/0
+                  gateway: {{ .Values.network.gateway | quote }}
+              dhcp: false

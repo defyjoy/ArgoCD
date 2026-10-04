@@ -1,0 +1,48 @@
+clusterName: wion-trade
+namespace: wion-trade
+
+kubernetesVersion: v1.33.2
+talosVersion: v1.9.2
+
+controlPlaneEndpoint:
+  host: 192.168.9.10
+  port: 6443
+
+proxmox:
+  sourceNode: pve
+  templateID: 9000
+  pool: ""
+  network:
+    bridge: vmbr0
+    model: virtio
+  disk:
+    sizeGiB: 40
+
+controlPlane:
+  replicas: 1
+  numSockets: 1
+  numCores: 2
+  memoryMiB: 4096
+  ip: 192.168.9.10
+
+worker:
+  replicas: 1
+  numSockets: 1
+  numCores: 2
+  memoryMiB: 4096
+  ip: 192.168.9.11
+
+network:
+  gateway: 192.168.9.1
+  prefix: 24
+  dnsServers:
+    - 192.168.9.1
+
+credentialsRef:
+  secretName: wion-trade-proxmox-credentials
+  externalSecrets:
+    vaultPath: alarmify/hub/cluster-api/proxmox-credentials
+
+registrationJob:
+  kubectlImage: docker.io/alpine/k8s:1.31.13
+  argocdNamespace: argocd

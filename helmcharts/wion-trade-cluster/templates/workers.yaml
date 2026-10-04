@@ -1,0 +1,85 @@
+# See templates/control-plane.yaml's top-of-file note: ProxmoxMachineTemplate field names here
+# are best-effort and unverified against the live CRD.
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+kind: ProxmoxMachineTemplate
+metadata:
+  name: {{ printf "%s-worker" .Values.clusterName | quote }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: worker
+spec:
+  template:
+    spec:
+      sourceNode: {{ .Values.proxmox.sourceNode | quote }}
+      templateID: {{ .Values.proxmox.templateID }}
+      numSockets: {{ .Values.worker.numSockets }}
+      numCores: {{ .Values.worker.numCores }}
+      memoryMiB: {{ .Values.worker.memoryMiB }}
+      disks:
+        bootVolume:
+          disk: scsi0
+          sizeGb: {{ .Values.proxmox.disk.sizeGiB }}
+      network:
+        default:
+          bridge: {{ .Values.proxmox.network.bridge | quote }}
+          model: {{ .Values.proxmox.network.model | quote }}
+---
+apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+kind: TalosConfigTemplate
+metadata:
+  name: {{ printf "%s-worker" .Values.clusterName | quote }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: worker
+spec:
+  template:
+    spec:
+      generateType: join
+      talosVersion: {{ .Values.talosVersion | quote }}
+      configPatches:
+        - op: add
+          path: /machine/network/interfaces
+          value:
+            - interface: eth0
+              addresses:
+                - {{ printf "%s/%v" .Values.worker.ip .Values.network.prefix | quote }}
+              routes:
+                - network: 0.0.0.0/0
+                  gateway: {{ .Values.network.gateway | quote }}
+              dhcp: false
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  name: {{ printf "%s-worker" .Values.clusterName | quote }}
+  namespace: {{ .Values.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: worker
+    cluster.x-k8s.io/cluster-name: {{ .Values.clusterName | quote }}
+spec:
+  clusterName: {{ .Values.clusterName | quote }}
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      cluster.x-k8s.io/cluster-name: {{ .Values.clusterName | quote }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        cluster.x-k8s.io/cluster-name: {{ .Values.clusterName | quote }}
+        app.kubernetes.io/component: worker
+    spec:
+      clusterName: {{ .Values.clusterName | quote }}
+      version: {{ .Values.kubernetesVersion | quote }}
+      bootstrap:
+        configRef:
+          apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
+          kind: TalosConfigTemplate
+          name: {{ printf "%s-worker" .Values.clusterName | quote }}
+      infrastructureRef:
+        apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
+        kind: ProxmoxMachineTemplate
+        name: {{ printf "%s-worker" .Values.clusterName | quote }}

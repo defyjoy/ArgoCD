@@ -1,0 +1,187 @@
+{{- $release := .Values.clusterName }}
+{{- $ns := .Values.namespace }}
+{{- $argocdNs := .Values.registrationJob.argocdNamespace }}
+{{- $saName := printf "%s-argocd-register" $release | trunc 63 | trimSuffix "-" }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $saName | quote }}
+  namespace: {{ $ns | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: argocd-cluster-registration
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $saName | quote }}
+  namespace: {{ $ns | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: argocd-cluster-registration
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ printf "%s-kubeconfig" $release | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $saName | quote }}
+  namespace: {{ $ns | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: argocd-cluster-registration
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $saName | quote }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $saName | quote }}
+    namespace: {{ $ns | quote }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $saName | quote }}
+  namespace: {{ $argocdNs | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: argocd-cluster-registration
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $saName | quote }}
+  namespace: {{ $argocdNs | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: argocd-cluster-registration
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $saName | quote }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $saName | quote }}
+    namespace: {{ $ns | quote }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-argocd-reg" $release | trunc 52 | trimSuffix "-" | quote }}
+  namespace: {{ $ns | quote }}
+  labels:
+    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/component: argocd-cluster-registration
+  annotations:
+    # CAPI only writes <cluster>-kubeconfig once the control plane is actually up, which can be
+    # long after this Job's pod is scheduled -- the retry loop below covers that gap, same
+    # pattern as the vcluster registration Job this was adapted from.
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 6
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wion-trade-cluster
+        app.kubernetes.io/component: argocd-cluster-registration
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ $saName | quote }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: register
+          image: {{ .Values.registrationJob.kubectlImage | quote }}
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1000
+          env:
+            - name: HOME
+              value: /tmp
+            - name: KUBECACHEDIR
+              value: /tmp/.kube-cache
+            - name: RELEASE
+              value: {{ $release | quote }}
+            - name: CLUSTER_NS
+              value: {{ $ns | quote }}
+            - name: ARGOCD_NS
+              value: {{ $argocdNs | quote }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              set -euo pipefail
+              # CAPI's standard "<cluster>-kubeconfig" Secret carries a single "value" key: a
+              # full kubeconfig, base64-decoded on read via -o jsonpath. yq extracts the fields
+              # Argo CD's cluster Secret needs (client cert/key auth, same as Talos's own
+              # generated admin kubeconfig) -- assumes yq ships in this image; if it doesn't,
+              # swap the image or vendor yq into it.
+              for i in $(seq 1 120); do
+                KCONFIG_B64="$(kubectl get secret -n "$CLUSTER_NS" "$RELEASE-kubeconfig" -o jsonpath='{.data.value}' 2>/dev/null || true)"
+                if [ -n "$KCONFIG_B64" ]; then
+                  break
+                fi
+                echo "waiting for $CLUSTER_NS/$RELEASE-kubeconfig..."
+                sleep 10
+              done
+              if [ -z "${KCONFIG_B64:-}" ]; then
+                echo "$CLUSTER_NS/$RELEASE-kubeconfig never appeared" >&2
+                exit 1
+              fi
+              echo "$KCONFIG_B64" | base64 -d > /tmp/kubeconfig.yaml
+
+              SERVER="$(yq e '.clusters[0].cluster.server' /tmp/kubeconfig.yaml)"
+              CA_B64="$(yq e '.clusters[0].cluster.certificate-authority-data' /tmp/kubeconfig.yaml)"
+              CERT_B64="$(yq e '.users[0].user.client-certificate-data' /tmp/kubeconfig.yaml)"
+              KEY_B64="$(yq e '.users[0].user.client-key-data' /tmp/kubeconfig.yaml)"
+
+              if [ -z "$SERVER" ] || [ -z "$CA_B64" ] || [ -z "$CERT_B64" ] || [ -z "$KEY_B64" ]; then
+                echo "could not extract server/ca/cert/key from $RELEASE-kubeconfig" >&2
+                exit 1
+              fi
+
+              CONFIG="$(printf '{"tlsClientConfig":{"insecure":false,"caData":"%s","certData":"%s","keyData":"%s"}}' "$CA_B64" "$CERT_B64" "$KEY_B64")"
+              cat <<EOF | kubectl apply -f -
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: ${RELEASE}-cluster
+                namespace: ${ARGOCD_NS}
+                labels:
+                  argocd.argoproj.io/secret-type: cluster
+                  app.kubernetes.io/name: wion-trade-cluster
+                  app.kubernetes.io/component: argocd-cluster-registration
+                  cluster-name: ${RELEASE}
+                  environment: ${RELEASE}
+              type: Opaque
+              stringData:
+                name: ${RELEASE}
+                server: ${SERVER}
+                config: |
+                  ${CONFIG}
+              EOF
+              echo "Registered ArgoCD cluster '${RELEASE}' (${SERVER})"
+      volumes:
+        - name: tmp
+          emptyDir: {}

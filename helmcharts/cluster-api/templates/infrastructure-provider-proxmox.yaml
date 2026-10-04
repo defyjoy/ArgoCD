@@ -1,0 +1,12 @@
+apiVersion: operator.cluster.x-k8s.io/v1alpha2
+kind: InfrastructureProvider
+metadata:
+  name: {{ .Values.providers.infrastructure.name | quote }}
+  namespace: {{ .Values.providers.infrastructure.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: cluster-api
+    app.kubernetes.io/component: infrastructure-provider
+spec:
+  version: {{ .Values.providers.infrastructure.version | quote }}
+  configSecret:
+    name: {{ .Values.proxmoxCredentials.secretName | quote }}

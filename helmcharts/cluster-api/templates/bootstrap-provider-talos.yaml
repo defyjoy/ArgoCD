@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.providers.bootstrap.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: cluster-api
+    app.kubernetes.io/component: bootstrap-provider
+---
+apiVersion: operator.cluster.x-k8s.io/v1alpha2
+kind: BootstrapProvider
+metadata:
+  name: {{ .Values.providers.bootstrap.name | quote }}
+  namespace: {{ .Values.providers.bootstrap.namespace | quote }}
+  labels:
+    app.kubernetes.io/name: cluster-api
+    app.kubernetes.io/component: bootstrap-provider
+spec:
+  version: {{ .Values.providers.bootstrap.version | quote }}

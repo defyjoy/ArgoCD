@@ -1,0 +1,73 @@
+# The wion-trade Cluster API workload-cluster definition. Gated on `wion-trade-cluster: "true"`
+# (hub-cluster-secret.yaml) and ordered after cluster-api-as.yaml (sync-wave 4) so the
+# InfrastructureProvider/BootstrapProvider/ControlPlaneProvider CRDs it needs already exist.
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: wion-trade-cluster
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            wion-trade-cluster: "true"
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: false
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-wion-trade-cluster"` }}
+      namespace: argocd
+      labels:
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{metadata.labels.environment}}"` }}
+      annotations:
+        argocd.argoproj.io/sync-wave: "5"
+    spec:
+      project: default
+      source:
+        repoURL: git@github.com:defyjoy/ArgoCD.git
+        targetRevision: HEAD
+        path: helmcharts/wion-trade-cluster
+        helm:
+          valueFiles:
+            - values.yaml
+            - {{ `"values/{{metadata.labels.environment}}.yaml"` }}
+          ignoreMissingValueFiles: true
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: wion-trade
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+      revisionHistoryLimit: 3
+      ignoreDifferences:
+        - group: external-secrets.io
+          kind: ExternalSecret
+          jqPathExpressions:
+            - .metadata.annotations."force-sync"
+        - group: cluster.x-k8s.io
+          kind: Cluster
+          jqPathExpressions:
+            - .status
+        - group: controlplane.cluster.x-k8s.io
+          kind: TalosControlPlane
+          jqPathExpressions:
+            - .status

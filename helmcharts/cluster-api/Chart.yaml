@@ -1,0 +1,12 @@
+apiVersion: v2
+name: cluster-api
+description: Cluster API management plane (CAPI core + CAPMOX + Talos bootstrap/control-plane providers)
+type: application
+version: 0.1.0
+appVersion: "0.12.0"
+
+dependencies:
+  - name: cluster-api-operator
+    version: 0.12.0
+    repository: https://kubernetes-sigs.github.io/cluster-api-operator
+    condition: enabled

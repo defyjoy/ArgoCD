@@ -1,0 +1,27 @@
+enabled: true
+
+cluster-api-operator:
+  configSecret:
+    name: ""
+
+providers:
+  core:
+    name: cluster-api
+    namespace: capi-system
+  infrastructure:
+    name: proxmox
+    namespace: capmox-system
+    version: v0.10.0
+  bootstrap:
+    name: talos
+    namespace: cabpt-system
+    version: v0.6.8
+  controlPlane:
+    name: talos
+    namespace: cacppt-system
+    version: v0.6.8
+
+proxmoxCredentials:
+  secretName: proxmox-credentials
+  externalSecrets:
+    vaultPath: alarmify/hub/cluster-api/proxmox-credentials

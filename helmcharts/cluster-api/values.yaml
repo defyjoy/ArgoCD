@@ -15,7 +15,7 @@ providers:
   bootstrap:
     name: talos
     namespace: cabpt-system
-    version: v0.6.8
+    version: v0.6.13
   controlPlane:
     name: talos
     namespace: cacppt-system

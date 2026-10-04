@@ -9,7 +9,7 @@ controlPlaneEndpoint:
   port: 6443
 
 proxmox:
-  sourceNode: pve
+  sourceNode: pve01
   templateID: 9000
   pool: ""
   network:

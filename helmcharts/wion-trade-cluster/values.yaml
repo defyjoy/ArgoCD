@@ -41,7 +41,7 @@ network:
 credentialsRef:
   secretName: wion-trade-proxmox-credentials
   externalSecrets:
-    vaultPath: alarmify/hub/cluster-api/proxmox-credentials
+    vaultPath: wion-trade/hub/cluster-api/proxmox-credentials
 
 registrationJob:
   kubectlImage: docker.io/alpine/k8s:1.31.13

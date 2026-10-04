@@ -29,7 +29,7 @@ cluster's manual bootstrap step in `docs/runbooks/register-dev-cluster.md` -- cr
 live in values files, and this one has no automatable precursor):
 
 ```bash
-vault kv put kv/alarmify/hub/cluster-api/proxmox-credentials \
+vault kv put kv/wion-trade/hub/cluster-api/proxmox-credentials \
   url="https://<proxmox-host>:8006/api2/json" \
   token_id="<user>@pve!<tokenid>" \
   token_secret="<secret-uuid>"

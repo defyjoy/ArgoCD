@@ -24,4 +24,4 @@ providers:
 proxmoxCredentials:
   secretName: proxmox-credentials
   externalSecrets:
-    vaultPath: alarmify/hub/cluster-api/proxmox-credentials
+    vaultPath: wion-trade/hub/cluster-api/proxmox-credentials

@@ -4,7 +4,7 @@ gateway:
       value: 192.168.7.10
 
   externalDns:
-    target: 9da192fd-9481-44a4-a379-f205b66549b7.cfargotunnel.com
+    target: c935e6a5-731b-4b34-a322-fd7658b60dfc.cfargotunnel.com
 
   tls:
     enabled: true

@@ -3,7 +3,7 @@ externalSecrets:
   vaultPath: alarmify/hub/cloudflared/credentials
 
 dns:
-  cfargotunnelTarget: 9da192fd-9481-44a4-a379-f205b66549b7.cfargotunnel.com
+  cfargotunnelTarget: c935e6a5-731b-4b34-a322-fd7658b60dfc.cfargotunnel.com
   records:
     - hostname: vault.workquark.org
 

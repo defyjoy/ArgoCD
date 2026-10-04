@@ -319,7 +319,7 @@ cluster serves which hostname.
 
 | Environment | Values file | Vault path | Tunnel name |
 |---|---|---|---|
-| hub | `values/hub.yaml` | `alarmify/hub/cloudflared/credentials` | `hub` (tunnel ID `9da192fd-9481-44a4-a379-f205b66549b7`) |
+| hub | `values/hub.yaml` | `alarmify/hub/cloudflared/credentials` | `hub` (tunnel ID `c935e6a5-731b-4b34-a322-fd7658b60dfc` -- corrected 2026-10-04, see CLAUDE.md) |
 | dev (not yet built) | `values/dev.yaml` | `alarmify/dev/cloudflared/credentials` | `dev` (tunnel ID `64478596-9fd7-4d58-a792-ae3b95d3ea98`, created and Vault-seeded 2026-07-19) |
 
 `tunnelConfig.name` is cosmetic — cloudflared identifies the tunnel from

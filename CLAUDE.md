@@ -54,8 +54,18 @@ spec:
 
 ```
 dev tunnel id - 64478596-9fd7-4d58-a792-ae3b95d3ea98
-hub tunnel id - 9da192fd-9481-44a4-a379-f205b66549b7
+hub tunnel id - c935e6a5-731b-4b34-a322-fd7658b60dfc
 ```
+
+**The hub tunnel ID above was wrong until 2026-10-04** (previously documented as
+`9da192fd-9481-44a4-a379-f205b66549b7`, which belongs to a different tunnel entirely). Nothing
+caught it because `vault.workquark.org` was the first hostname ever actually routed through
+this tunnel — every CNAME pointed at the wrong `<id>.cfargotunnel.com`, so Cloudflare's edge
+returned error 1033 ("no healthy origin") instead of reaching the connector, which **was**
+healthy and connected. Verified from the live pod logs (`tunnelID=...` in `cloudflared`'s own
+startup log), not from any document. If exposing a new `*.workquark.org` hostname ever hits
+1033 again with healthy-looking connectors, check the real ID the same way before trusting any
+written-down value, including this one.
 
 ## Monitoring stack
 

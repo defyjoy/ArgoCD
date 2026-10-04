@@ -72,3 +72,17 @@ spec:
           kind: ExternalSecret
           jqPathExpressions:
             - .metadata.annotations."force-sync"
+        # cluster-api-operator's CRDs ship a conversion webhook with a literal placeholder
+        # caBundle ("Cg==" -- just a newline, not valid PEM). cert-manager-cainjector patches
+        # it with the real cert right after creation, but ArgoCD's git-rendered manifest still
+        # carries the placeholder -- a jqPathExpressions-only ignore just masks drift *after* a
+        # successful apply, it doesn't stop ArgoCD from trying to re-assert the placeholder
+        # (which the API server then rejects outright: "unable to parse bytes as PEM block").
+        # managedFieldsManagers makes ArgoCD cede this field to cainjector's SSA ownership
+        # instead, so it never attempts to write it in the first place.
+        - group: apiextensions.k8s.io
+          kind: CustomResourceDefinition
+          jqPathExpressions:
+            - .spec.conversion.webhookClientConfig.caBundle
+          managedFieldsManagers:
+            - cert-manager-cainjector

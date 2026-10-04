@@ -15,6 +15,8 @@ spec:
       templateID: {{ .Values.proxmox.templateID }}
       checks:
         skipQemuGuestAgent: true
+      metadataSettings:
+        providerIDInjection: true
       numSockets: {{ .Values.controlPlane.numSockets }}
       numCores: {{ .Values.controlPlane.numCores }}
       memoryMiB: {{ .Values.controlPlane.memoryMiB }}

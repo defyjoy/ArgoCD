@@ -161,3 +161,15 @@ and known (`init: {generateType: "", hostname: {}}`, `controlplane.hostname: {}`
 `conversionStrategy: Default`/`decodingStrategy: None`/`metadataPolicy: None` on every
 `ExternalSecret` `remoteRef`), declaring them explicitly in git removes the diff entirely --
 no `ignoreDifferences` needed, git just matches what's actually live.
+
+## Machines stuck forever `Provisioning`/`Ready: Unknown`: missing `providerID`
+
+Confirmed live: both `Machine`s sat indefinitely with `NodeHealthy: Waiting for a Node with
+spec.providerID proxmox://<uuid> to exist` -- CAPI's `Machine` controller links a `Machine` to
+its Kubernetes `Node` by matching `spec.providerID`, and nothing was ever setting it
+(`kubectl get nodes -o jsonpath='{.items[*].spec.providerID}'` on the workload cluster came
+back empty on both nodes; there's no cloud-controller-manager running). `metadataSettings.
+providerIDInjection: true` (confirmed via CAPMOX source, `pkg/cloudinit/metadata.go`) makes the
+cloud-init metadata include `provider-id: proxmox://<instanceID>`, which Talos's `nocloud`
+platform picks up and sets on the kubelet -- without it, CAPMOX's own default is `false`, and
+every Machine blocks here forever regardless of how healthy the actual node is.

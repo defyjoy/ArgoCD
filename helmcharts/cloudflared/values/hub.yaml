@@ -13,7 +13,5 @@ cloudflared:
 
   ingress:
     - hostname: vault.workquark.org
-      service: https://192.168.0.102:8200
-      originRequest:
-        noTLSVerify: true
+      service: http://192.168.0.102:8200
     - service: http_status:404

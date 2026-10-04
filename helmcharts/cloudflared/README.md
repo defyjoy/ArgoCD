@@ -477,8 +477,12 @@ Proxmox LXC container (`ct-102` on `pve01`, reachable at `192.168.0.102:8200`), 
 cluster Service -- so it can't be routed through `cilium-gateway`/`HTTPRoute` like everything
 else this tunnel
 serves. `values/hub.yaml`'s `ingress` list routes `vault.workquark.org` straight to that IP
-(`noTLSVerify: true` since OpenBao's listener cert there is self-signed, not from a trust chain
-this cluster shares).
+over **plain HTTP**, not HTTPS -- Cloudflare's edge already terminates public TLS, and the
+tunnel connection itself (cloudflared -> Cloudflare) is encrypted independently of the origin
+hop, so OpenBao's own listener doesn't need a cert at all. OpenBao's config should set
+`tls_disable = true` on its `listener "tcp"` stanza to match (no `tls_cert_file`/`tls_key_file`
+needed) -- the LAN hop between the `cloudflared` pods and `ct-102` is unencrypted, which is an
+accepted tradeoff here, not an oversight.
 
 `dns.records` (`templates/dns-endpoint.yaml`) exists because external-dns's `gateway-httproute`
 source has nothing to discover here -- there's no `HTTPRoute`, so a plain `DNSEndpoint` CRD

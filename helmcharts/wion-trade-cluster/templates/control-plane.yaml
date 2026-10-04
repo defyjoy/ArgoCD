@@ -1,8 +1,5 @@
-# NOTE: ProxmoxMachineTemplate.spec.template.spec field names below are a best-effort read of
-# upstream CAPMOX docs, not yet validated against a live CRD. Run `kubectl explain
-# proxmoxmachinetemplate.spec.template.spec --recursive` against the installed CRD (once
-# helmcharts/cluster-api's InfrastructureProvider is Ready) and fix field names here before the
-# first real apply -- see helmcharts/cluster-api/README.md "Known-unverified pieces".
+# Field names verified 2026-10-04 against the live CRD (`kubectl explain
+# proxmoxmachinetemplate.spec.template.spec --recursive`, InfrastructureProvider v0.9.1).
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: ProxmoxMachineTemplate
 metadata:
@@ -24,9 +21,10 @@ spec:
           disk: scsi0
           sizeGb: {{ .Values.proxmox.disk.sizeGiB }}
       network:
-        default:
-          bridge: {{ .Values.proxmox.network.bridge | quote }}
-          model: {{ .Values.proxmox.network.model | quote }}
+        networkDevices:
+          - bridge: {{ .Values.proxmox.network.bridge | quote }}
+            model: {{ .Values.proxmox.network.model | quote }}
+            defaultIPv4: true
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
 kind: TalosControlPlane

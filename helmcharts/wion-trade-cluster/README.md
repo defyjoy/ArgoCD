@@ -45,14 +45,15 @@ creation is intentionally **not** part of this chart (it's an immutable OS image
 every VM this chart creates, not per-cluster config) -- do it by hand once on the Proxmox host,
 same category of manual step as the API token above.
 
-## Known-unverified pieces
+## Field names, verified against the live CRD (2026-10-04)
 
-Same caveat as `helmcharts/cluster-api/README.md`: `ProxmoxMachineTemplate.spec.template.spec`
-field names (`sourceNode`, `templateID`, `numSockets`/`numCores`/`memoryMiB`, `disks`,
-`network`) are a best-effort read of upstream CAPMOX docs, not yet checked against the live
-CRD. Run `kubectl explain proxmoxmachinetemplate.spec.template.spec --recursive` once
-`helmcharts/cluster-api`'s `InfrastructureProvider` is `Ready`, and fix field names in
-`templates/control-plane.yaml`/`templates/workers.yaml` before trusting the first real sync.
+`ProxmoxMachineTemplate.spec.template.spec.network` is **not** `{default: {bridge, model}}` --
+that was a guess and it failed sync outright (`field not declared in schema`). The real shape
+is `networkDevices: [{bridge, model, defaultIPv4, ...}]`, a list, confirmed via `kubectl
+explain proxmoxmachinetemplate.spec.template.spec --recursive`. `ProxmoxCluster.spec.dnsServers`
+is also required at the top level (separate from `credentialsRef`/`controlPlaneEndpoint`) --
+missing it fails validation the same way. If CAPMOX's schema changes again on a version bump,
+re-run that `kubectl explain` before trusting any new field names.
 
 The registration Job (`templates/argocd-cluster-registration-job.yaml`) assumes `yq` is
 present in `registrationJob.kubectlImage` (`docker.io/alpine/k8s:1.31.13`) -- confirm before

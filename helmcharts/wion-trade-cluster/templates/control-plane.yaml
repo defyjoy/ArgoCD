@@ -25,6 +25,10 @@ spec:
           - bridge: {{ .Values.proxmox.network.bridge | quote }}
             model: {{ .Values.proxmox.network.model | quote }}
             defaultIPv4: true
+            ipPoolRef:
+              - apiGroup: ipam.cluster.x-k8s.io
+                kind: InClusterIPPool
+                name: {{ printf "%s-control-plane" .Values.clusterName | quote }}
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
 kind: TalosControlPlane

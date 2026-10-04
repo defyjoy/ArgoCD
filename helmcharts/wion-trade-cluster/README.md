@@ -99,3 +99,18 @@ kubectl get coreprovider,infrastructureprovider,bootstrapprovider,controlplanepr
 kubectl get cluster,machine -n wion-trade
 kubectl get secret -n argocd wion-trade-cluster -o jsonpath='{.metadata.labels}'; echo
 ```
+
+## Per-role `InClusterIPPool`: making CAPMOX's IPAM claim match Talos's real IP
+
+CAPMOX has no "just use this static IP" field on `ProxmoxMachineTemplate` -- addressing is
+either `ipPoolRef` (IPAM) or implicit DHCP; a fixed IP is only achievable by setting it
+in-guest via Talos's own `strategicPatches` (above), entirely separately from whatever CAPMOX
+itself thinks the machine's address is. CAPMOX reports `Machine.status.addresses` from its
+IPAM claim (or a QEMU-guest-agent query it can't make -- Talos doesn't implement QGA), and
+CABPT/CACPPT use that status field, not the real in-guest address, to know where to connect
+for bootstrap/health checks. With one shared multi-address pool, the claimed address and the
+real Talos IP diverged (confirmed live 2026-10-04: `status.addresses` showed a pool address
+Talos was never actually configured with), and the control plane could never bootstrap --
+`"no addresses were found for node"`, forever. `templates/ip-pools.yaml` gives each role its
+own single-address `InClusterIPPool` (exactly `controlPlane.ip`/`worker.ip`), so the only thing
+IPAM *can* claim is the same address Talos's `strategicPatches` configures in-guest.

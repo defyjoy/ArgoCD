@@ -71,3 +71,13 @@ spec:
           kind: TalosControlPlane
           jqPathExpressions:
             - .status
+        # cluster.x-k8s.io/cluster-name is added live by the Cluster controller itself
+        # (confirmed owner via metadata.managedFields -- manager "manager", not us) to track
+        # which Cluster a TalosControlPlane belongs to. Cede that one label's ownership instead
+        # of fighting it every sync.
+        - group: controlplane.cluster.x-k8s.io
+          kind: TalosControlPlane
+          jqPathExpressions:
+            - .metadata.labels."cluster.x-k8s.io/cluster-name"
+          managedFieldsManagers:
+            - manager

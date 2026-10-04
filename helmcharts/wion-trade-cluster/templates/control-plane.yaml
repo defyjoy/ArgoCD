@@ -22,7 +22,8 @@ spec:
           sizeGb: {{ .Values.proxmox.disk.sizeGiB }}
       network:
         networkDevices:
-          - bridge: {{ .Values.proxmox.network.bridge | quote }}
+          - name: net0
+            bridge: {{ .Values.proxmox.network.bridge | quote }}
             model: {{ .Values.proxmox.network.model | quote }}
             defaultIPv4: true
             ipPoolRef:

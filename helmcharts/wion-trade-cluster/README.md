@@ -127,3 +127,12 @@ on top of that real address -- exactly Talos's supported mechanism for a stable 
 address that outlives any one CP replica. The worker needs no `strategicPatches` at all now;
 its address is whatever IPAM gives it, and nothing outside the cluster needs to know it in
 advance.
+
+## `checks.skipQemuGuestAgent: true` -- Talos has no QEMU guest agent
+
+Confirmed live: CAPMOX's reconcile loop got stuck forever on `error waiting for agent: the
+operation has timed out`, blocking cloud-init injection entirely (`VirtualMachineProvisioned:
+WaitingForCloudInit`, never progressing). It waits for a QEMU guest agent response before
+proceeding, and Talos doesn't implement one (confirmed earlier via `qm guest cmd ... network
+-get-interfaces` -> `"QEMU guest agent is not running"`). `checks.skipQemuGuestAgent: true` on
+both `ProxmoxMachineTemplate`s skips that wait.

@@ -12,6 +12,8 @@ spec:
     spec:
       sourceNode: {{ .Values.proxmox.sourceNode | quote }}
       templateID: {{ .Values.proxmox.templateID }}
+      checks:
+        skipQemuGuestAgent: true
       numSockets: {{ .Values.worker.numSockets }}
       numCores: {{ .Values.worker.numCores }}
       memoryMiB: {{ .Values.worker.memoryMiB }}

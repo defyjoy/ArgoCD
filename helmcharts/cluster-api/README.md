@@ -30,7 +30,7 @@ live in values files, and this one has no automatable precursor):
 
 ```bash
 vault kv put kv/wion-trade/hub/cluster-api/proxmox-credentials \
-  url="https://<proxmox-host>:8006/api2/json" \
+  url="https://<proxmox-host-ip>:8006" \
   token_id="<user>@pve!<tokenid>" \
   token_secret="<secret-uuid>"
 ```
@@ -39,6 +39,13 @@ Create the Proxmox API token in the Proxmox web UI first: Datacenter -> Permissi
 Tokens -> Add, for a user with enough privilege to create/delete VMs (`PVEVMAdmin` or similar)
 on the target node/pool. `token_id` is `<user>@<realm>!<token-name>` (e.g.
 `capi@pve!cluster-api`); `token_secret` is the UUID Proxmox shows you exactly once.
+
+Two gotchas confirmed from a live `CrashLoopBackOff` (2026-10-04): `url` must **not** include
+`/api2/json` -- CAPMOX appends that path itself, so including it produces a doubled,
+404-ing URL (`.../api2/json/api2/json/version`). And it must be an **IP, not a `.home.arpa`
+hostname** -- `kube-system/coredns`'s `home.arpa` zone (`helmcharts/argocd/templates/kube-system/core-dns-cofigmap.yaml`)
+only serves the handful of hostnames explicitly listed in its `hosts` block and has no
+`forward` fallback for anything else, so an unlisted hostname SERVFAILs instead of resolving.
 
 ## Known-unverified pieces
 

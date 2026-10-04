@@ -115,10 +115,10 @@ spec:
 ### 🚨 The Vault address differs per cluster — deliberately
 
 ```yaml
-# values.yaml (management) — in-cluster Service DNS
+# values.yaml (management) — direct LAN address, no Cloudflare hop
 vaultClusterSecretStore:
   vault:
-    server: "http://local-vault.vault.svc.cluster.local:8200"
+    server: "http://192.168.0.102:8200"
 ```
 
 ```yaml
@@ -128,8 +128,18 @@ vaultClusterSecretStore:
     server: "https://vault.workquark.org"
 ```
 
-**Management must never use the public hostname.** Vault runs in that same cluster, so it never
-needs to route out through Cloudflare at all. Pointing it at `vault.workquark.org` creates a
+The backend is OpenBao (Vault's OSS fork), running outside Kubernetes entirely on a Proxmox LXC
+(`ct-102`/`pve01`, `192.168.0.102:8200`, plain HTTP -- Cloudflare's edge already terminates
+public TLS for the `vault.workquark.org` path, so OpenBao's own listener doesn't need a cert;
+see `helmcharts/cloudflared/README.md`). `192.168.0.102` was previously unreachable from `hub`'s
+node subnet due to a netmask mismatch on `ct-102` (`/24` instead of the fleet's flat `/16`) --
+fixed 2026-10-04, see `CLAUDE.md`'s Cloudflare section. There was never an in-cluster Vault
+Service on `management`/`hub` to begin with; the old `local-vault.vault.svc.cluster.local`
+value was aspirational and never resolved to anything.
+
+**Management must never use the public hostname.** OpenBao is reachable directly over the LAN,
+so it never needs to route out through Cloudflare at all. Pointing it at `vault.workquark.org`
+creates a
 **circular dependency**: external-dns and external-secrets need Vault to obtain their Cloudflare
 API token, but Vault would then be reachable *only through* Cloudflare's tunnel — so a single
 Cloudflare or DNS hiccup takes out Vault access cluster-wide with no independent path to

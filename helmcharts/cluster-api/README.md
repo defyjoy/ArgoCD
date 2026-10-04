@@ -80,3 +80,11 @@ after fixing a bad Vault value) does **not** regenerate the derived Secret or re
 controller pod on its own. After any credential fix: delete the derived
 `<provider>-manager-credentials` Secret, restart the `cluster-api-operator` Deployment to force
 it to re-copy from the current source, then delete the provider's controller pod to pick it up.
+
+## `cluster-api-operator` won't skip more than 3 minor versions in one upgrade
+
+Jumping `providers.core.version` straight from the originally-installed `v1.10.10` to the
+latest (`v1.14.2`) failed with `upgrade ... can't skip more than 3 versions` -- confirmed live.
+Step through an intermediate version first (e.g. `v1.13.6`), let it reach `ProviderUpgraded:
+True`, then bump again to the real target. This only matters for the *initial* catch-up from
+an old pin; routine version bumps going forward won't hit it.

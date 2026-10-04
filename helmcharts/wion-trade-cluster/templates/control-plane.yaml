@@ -25,11 +25,7 @@ spec:
           - name: net0
             bridge: {{ .Values.proxmox.network.bridge | quote }}
             model: {{ .Values.proxmox.network.model | quote }}
-            defaultIPv4: false
-            ipPoolRef:
-              - apiGroup: ipam.cluster.x-k8s.io
-                kind: InClusterIPPool
-                name: {{ printf "%s-control-plane" .Values.clusterName | quote }}
+            defaultIPv4: true
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1alpha3
 kind: TalosControlPlane
@@ -56,9 +52,5 @@ spec:
             network:
               interfaces:
                 - interface: eth0
-                  addresses:
-                    - {{ printf "%s/%v" .Values.controlPlane.ip .Values.network.prefix | quote }}
-                  routes:
-                    - network: 0.0.0.0/0
-                      gateway: {{ .Values.network.gateway | quote }}
-                  dhcp: false
+                  vip:
+                    ip: {{ .Values.controlPlaneEndpoint.host | quote }}

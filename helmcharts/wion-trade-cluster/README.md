@@ -27,8 +27,8 @@ path, just mapped to different key names -- see this chart's
 
 | Field | Value | Where |
 |---|---|---|
-| Control-plane endpoint | `192.168.9.10:6443` | `values.yaml` `controlPlaneEndpoint` -- single static IP, no kube-vip, since there's only one CP replica |
-| Worker IP | `192.168.9.11` | `values.yaml` `worker.ip` |
+| Control-plane endpoint | `192.168.9.10:6443` | `values.yaml` `controlPlaneEndpoint` -- a Talos-native floating VIP, not a real machine address (see below) |
+| Worker IP | whatever the shared `ipv4Config` pool assigns | no longer pinned -- nothing external needs a worker's address known in advance |
 | Proxmox template VM | `templateID: 9000` on node `pve01` | `values.yaml` `proxmox` -- built 2026-10-04, see below |
 
 ### The Talos template VM
@@ -100,25 +100,30 @@ kubectl get cluster,machine -n wion-trade
 kubectl get secret -n argocd wion-trade-cluster -o jsonpath='{.metadata.labels}'; echo
 ```
 
-## Per-role `InClusterIPPool`: making CAPMOX's IPAM claim match Talos's real IP
+## Why the control-plane endpoint is a Talos VIP, not a real machine address
 
-CAPMOX has no "just use this static IP" field on `ProxmoxMachineTemplate` -- addressing is
-either `ipPoolRef` (IPAM) or implicit DHCP; a fixed IP is only achievable by setting it
-in-guest via Talos's own `strategicPatches` (above), entirely separately from whatever CAPMOX
-itself thinks the machine's address is. CAPMOX reports `Machine.status.addresses` from its
-IPAM claim (or a QEMU-guest-agent query it can't make -- Talos doesn't implement QGA), and
-CABPT/CACPPT use that status field, not the real in-guest address, to know where to connect
-for bootstrap/health checks. With one shared multi-address pool, the claimed address and the
-real Talos IP diverged (confirmed live 2026-10-04: `status.addresses` showed a pool address
-Talos was never actually configured with), and the control plane could never bootstrap --
-`"no addresses were found for node"`, forever. `templates/ip-pools.yaml` gives each role its
-own single-address `InClusterIPPool` (exactly `controlPlane.ip`/`worker.ip`), so the only thing
-IPAM *can* claim is the same address Talos's `strategicPatches` configures in-guest.
+CAPMOX assumes an HA shape: each machine gets its own real address from IPAM (the shared
+`ipv4Config` pool on `ProxmoxCluster`), and `controlPlaneEndpoint` is meant to be a floating
+VIP shared across however many CP replicas exist -- its webhook explicitly **rejects** putting
+the endpoint IP inside `ipv4Config.addresses`. Two things confirmed live while getting a single
+CP working with a fixed, known-in-advance endpoint:
 
-`defaultIPv4` on each `networkDevice` is `false`, not `true` -- confirmed live: CAPMOX's
-`ip.go` appends the *cluster-level* `ipv4Config` pool as an **extra** claim whenever
-`defaultIPv4: true`, on top of whatever `ipPoolRef` already specifies (`slices.Concat(pools,
-ipPoolRef)`), producing two IPAddressClaims per device and reporting the wrong one
-(`Machine.status.addresses` picked the cluster-pool claim, not ours). `false` leaves only our
-pinned per-role pool's claim. Gateway/routing still works -- our `InClusterIPPool`s each carry
-their own `gateway`, and Talos's `strategicPatches` set the route directly regardless.
+- `defaultIPv4` on each `networkDevice` **must** be `true` -- a mutating webhook
+  (`internal/webhook/proxmoxmachine_webhook.go`) force-sets it back to `true` on whichever
+  device is `infrav1.DefaultNetworkDevice` if no device has it, so trying to turn it off to
+  avoid the cluster-pool claim is a no-op.
+- `Machine.status.addresses` (what CABPT/CACPPT use to connect for bootstrap/health checks)
+  is **always** derived from that forced cluster-pool claim (`getClusterAPIMachineAddresses`
+  only reads the `"default"` NetName bucket) -- a separate `ipPoolRef` pinned to a one-address
+  pool still gets created as an *extra*, unused claim; it never becomes the reported address.
+  Fighting this with a second pool just produces two `IPAddressClaim`s per device and the
+  wrong one still wins.
+
+So rather than fight IPAM for the primary address: each machine's real IP now comes from
+whatever the shared `ipv4Config` pool assigns (matches `status.addresses` natively, no
+mismatch possible), and the **control plane only** gets a Talos-native floating VIP
+(`machine.network.interfaces[].vip.ip`, no kube-vip pod needed) added via `strategicPatches`
+on top of that real address -- exactly Talos's supported mechanism for a stable endpoint
+address that outlives any one CP replica. The worker needs no `strategicPatches` at all now;
+its address is whatever IPAM gives it, and nothing outside the cluster needs to know it in
+advance.

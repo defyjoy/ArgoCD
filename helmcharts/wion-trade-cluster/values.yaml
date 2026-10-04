@@ -1,6 +1,6 @@
 clusterName: wion-trade
 namespace: wion-trade
-templateRevision: "5"
+templateRevision: "6"
 
 kubernetesVersion: v1.33.2
 talosVersion: v1.14.2
@@ -24,14 +24,12 @@ controlPlane:
   numSockets: 1
   numCores: 2
   memoryMiB: 4096
-  ip: 192.168.9.10
 
 worker:
   replicas: 1
   numSockets: 1
   numCores: 2
   memoryMiB: 4096
-  ip: 192.168.9.11
 
 network:
   gateway: 192.168.0.1

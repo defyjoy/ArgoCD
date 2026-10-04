@@ -39,3 +39,8 @@ spec:
     name: {{ .Values.credentialsRef.secretName | quote }}
   dnsServers:
     {{- toYaml .Values.network.dnsServers | nindent 4 }}
+  ipv4Config:
+    addresses:
+      {{- toYaml .Values.network.ipv4Addresses | nindent 6 }}
+    gateway: {{ .Values.network.gateway | quote }}
+    prefix: {{ .Values.network.prefix }}

@@ -4,7 +4,7 @@ Installs the Cluster API **management plane** on `hub`: the upstream
 [`cluster-api-operator`](https://github.com/kubernetes-sigs/cluster-api-operator) chart, plus
 the provider CRs it watches (`CoreProvider`, `InfrastructureProvider`, `BootstrapProvider`,
 `ControlPlaneProvider`). This chart installs the *engine* only — no actual workload cluster is
-defined here; see `helmcharts/wion-trade-cluster` for the first (and so far only) consumer.
+defined here; see `helmcharts/wion-hub-cluster` for the first (and so far only) consumer.
 
 Replaces the vcluster-based virtualization approach removed from this repo in 2026-10: instead
 of a fake API server syncing select objects to the host (which hit vCluster Pro's licensing
@@ -29,7 +29,7 @@ cluster's manual bootstrap step in `docs/runbooks/register-dev-cluster.md` -- cr
 live in values files, and this one has no automatable precursor):
 
 ```bash
-vault kv put kv/wion-trade/hub/cluster-api/proxmox-credentials \
+vault kv put kv/wion-hub/hub/cluster-api/proxmox-credentials \
   url="https://<proxmox-host-ip>:8006" \
   token_id="<user>@pve!<tokenid>" \
   token_secret="<secret-uuid>"
@@ -57,7 +57,7 @@ before trusting them blind on first apply:
   provider's own GitHub releases as of 2026-10-04 -- the bootstrap and control-plane Talos
   providers are **separate repos with independent version numbers** (`v0.6.8` vs `v0.5.14`);
   don't assume they match. Bump as needed, `cluster-api-operator` will reconcile the change.
-- CAPMOX's per-cluster `credentialsRef` Secret (consumed by `helmcharts/wion-trade-cluster`, not
+- CAPMOX's per-cluster `credentialsRef` Secret (consumed by `helmcharts/wion-hub-cluster`, not
   this chart) uses different key names (`url`/`token`/`secret`, lowercase) than this chart's
   env-var-shaped provider-level Secret -- don't conflate the two when debugging auth failures.
 
@@ -65,10 +65,10 @@ before trusting them blind on first apply:
 
 CAPMOX does an API-discovery check for `ipam.cluster.x-k8s.io/v1beta2` on startup and **panics**
 if it's missing -- `unable to retrieve the complete list of server APIs: ... no matches for
-ipam.cluster.x-k8s.io/v1beta2`, confirmed live 2026-10-04, even though `wion-trade-cluster`
+ipam.cluster.x-k8s.io/v1beta2`, confirmed live 2026-10-04, even though `wion-hub-cluster`
 doesn't actually use an IP pool yet (DHCP). The in-cluster IPAM provider
 (`kubernetes-sigs/cluster-api-ipam-provider-in-cluster`) just needs to exist for CAPMOX to start
-at all; it's not wired to anything in `helmcharts/wion-trade-cluster` yet.
+at all; it's not wired to anything in `helmcharts/wion-hub-cluster` yet.
 
 ## `cluster-api-operator` doesn't live-sync the credentials Secret
 

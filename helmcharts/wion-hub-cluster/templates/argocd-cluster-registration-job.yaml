@@ -8,7 +8,7 @@ metadata:
   name: {{ $saName | quote }}
   namespace: {{ $ns | quote }}
   labels:
-    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/name: wion-hub-cluster
     app.kubernetes.io/component: argocd-cluster-registration
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -17,7 +17,7 @@ metadata:
   name: {{ $saName | quote }}
   namespace: {{ $ns | quote }}
   labels:
-    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/name: wion-hub-cluster
     app.kubernetes.io/component: argocd-cluster-registration
 rules:
   - apiGroups: [""]
@@ -31,7 +31,7 @@ metadata:
   name: {{ $saName | quote }}
   namespace: {{ $ns | quote }}
   labels:
-    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/name: wion-hub-cluster
     app.kubernetes.io/component: argocd-cluster-registration
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -48,7 +48,7 @@ metadata:
   name: {{ $saName | quote }}
   namespace: {{ $argocdNs | quote }}
   labels:
-    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/name: wion-hub-cluster
     app.kubernetes.io/component: argocd-cluster-registration
 rules:
   - apiGroups: [""]
@@ -61,7 +61,7 @@ metadata:
   name: {{ $saName | quote }}
   namespace: {{ $argocdNs | quote }}
   labels:
-    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/name: wion-hub-cluster
     app.kubernetes.io/component: argocd-cluster-registration
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -78,7 +78,7 @@ metadata:
   name: {{ printf "%s-argocd-reg" $release | trunc 52 | trimSuffix "-" | quote }}
   namespace: {{ $ns | quote }}
   labels:
-    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/name: wion-hub-cluster
     app.kubernetes.io/component: argocd-cluster-registration
   annotations:
     # CAPI only writes <cluster>-kubeconfig once the control plane is actually up, which can be
@@ -92,7 +92,7 @@ spec:
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: wion-trade-cluster
+        app.kubernetes.io/name: wion-hub-cluster
         app.kubernetes.io/component: argocd-cluster-registration
     spec:
       restartPolicy: Never
@@ -170,7 +170,7 @@ spec:
                 namespace: ${ARGOCD_NS}
                 labels:
                   argocd.argoproj.io/secret-type: cluster
-                  app.kubernetes.io/name: wion-trade-cluster
+                  app.kubernetes.io/name: wion-hub-cluster
                   app.kubernetes.io/component: argocd-cluster-registration
                   cluster-name: ${RELEASE}
                   environment: ${RELEASE}

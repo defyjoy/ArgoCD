@@ -1,6 +1,0 @@
-apiVersion: v2
-name: wion-trade-cluster
-description: Cluster API definition for the wion-trade cluster (Proxmox + Talos, 1 control-plane + 1 worker)
-type: application
-version: 0.1.0
-appVersion: "1.0.0"

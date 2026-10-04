@@ -6,7 +6,7 @@ metadata:
   name: {{ printf "%s-control-plane-%s" .Values.clusterName .Values.templateRevision | quote }}
   namespace: {{ .Values.namespace | quote }}
   labels:
-    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/name: wion-hub-cluster
     app.kubernetes.io/component: control-plane
 spec:
   template:
@@ -37,7 +37,7 @@ metadata:
   name: {{ printf "%s-control-plane" .Values.clusterName | quote }}
   namespace: {{ .Values.namespace | quote }}
   labels:
-    app.kubernetes.io/name: wion-trade-cluster
+    app.kubernetes.io/name: wion-hub-cluster
     app.kubernetes.io/component: control-plane
 spec:
   version: {{ .Values.kubernetesVersion | quote }}

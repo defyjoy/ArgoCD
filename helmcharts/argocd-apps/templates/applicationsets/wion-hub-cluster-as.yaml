@@ -1,10 +1,10 @@
-# The wion-trade Cluster API workload-cluster definition. Gated on `wion-trade-cluster: "true"`
+# The wion-hub Cluster API workload-cluster definition. Gated on `wion-hub-cluster: "true"`
 # (hub-cluster-secret.yaml) and ordered after cluster-api-as.yaml (sync-wave 4) so the
 # InfrastructureProvider/BootstrapProvider/ControlPlaneProvider CRDs it needs already exist.
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: wion-trade-cluster
+  name: wion-hub-cluster
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "5"
@@ -13,7 +13,7 @@ spec:
     - clusters:
         selector:
           matchLabels:
-            wion-trade-cluster: "true"
+            wion-hub-cluster: "true"
 
   syncPolicy:
     applicationsSync: sync
@@ -21,7 +21,7 @@ spec:
 
   template:
     metadata:
-      name: {{ `"{{name}}-wion-trade-cluster"` }}
+      name: {{ `"{{name}}-wion-hub-cluster"` }}
       namespace: argocd
       labels:
         cluster: {{ `"{{name}}"` }}
@@ -33,7 +33,7 @@ spec:
       source:
         repoURL: git@github.com:defyjoy/ArgoCD.git
         targetRevision: HEAD
-        path: helmcharts/wion-trade-cluster
+        path: helmcharts/wion-hub-cluster
         helm:
           valueFiles:
             - values.yaml
@@ -41,7 +41,7 @@ spec:
           ignoreMissingValueFiles: true
       destination:
         server: {{ `"{{server}}"` }}
-        namespace: wion-trade
+        namespace: wion-hub
       syncPolicy:
         automated:
           prune: true

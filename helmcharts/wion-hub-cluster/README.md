@@ -1,6 +1,6 @@
-# wion-trade cluster
+# wion-hub cluster
 
-Cluster API definition for `wion-trade`: a real (not virtual) Talos cluster on Proxmox VE,
+Cluster API definition for `wion-hub`: a real (not virtual) Talos cluster on Proxmox VE,
 1 control-plane + 1 worker, provisioned entirely through `hub`'s Argo CD via
 `helmcharts/cluster-api`'s management plane. No Terraform, no `defyjoy/proxmox-talos` repo
 involvement, no manual `clusterctl`/`talosctl` commands at steady state.
@@ -10,7 +10,7 @@ involvement, no manual `clusterctl`/`talosctl` commands at steady state.
 Replaces the vcluster-hosted nested-ArgoCD approach removed earlier (see git history):
 vcluster's generic CRD sync (needed to get an `HTTPRoute` from inside the virtual cluster onto
 the host Gateway) required a Pro license this org doesn't have. A real cluster has its own
-real Gateway, so that problem doesn't exist here at all -- `wion-trade` just needs its own
+real Gateway, so that problem doesn't exist here at all -- `wion-hub` just needs its own
 `cilium`/`cilium-gateway`/etc. rollout once it exists, the same way `dev` gets its component
 rollout after `docs/runbooks/register-dev-cluster.md` finishes.
 
@@ -87,7 +87,7 @@ drives its own rollout, no suffix needed there.
 `TalosConfigTemplate` (worker) names for exactly this -- bump it any time you change a
 machine-level or network value, and ArgoCD's `prune: true` cleans up the orphaned old
 template automatically. After bumping it, also delete the stale `Machine` objects
-(`kubectl delete machine -n wion-trade --all`) -- MachineDeployment/KCP don't always notice a
+(`kubectl delete machine -n wion-hub --all`) -- MachineDeployment/KCP don't always notice a
 template swap on their own and will keep re-reconciling the old, now-orphaned Machines
 otherwise.
 
@@ -96,8 +96,8 @@ otherwise.
 ```bash
 export KUBECONFIG=~/.kube/talos-hub.yaml
 kubectl get coreprovider,infrastructureprovider,bootstrapprovider,controlplaneprovider -A
-kubectl get cluster,machine -n wion-trade
-kubectl get secret -n argocd wion-trade-cluster -o jsonpath='{.metadata.labels}'; echo
+kubectl get cluster,machine -n wion-hub
+kubectl get secret -n argocd wion-hub-cluster -o jsonpath='{.metadata.labels}'; echo
 ```
 
 ## Why the control-plane endpoint is a Talos VIP, not a real machine address
@@ -198,7 +198,7 @@ bump to `"9"`).
 
 ## Deleting the sole control-plane `Machine` destroys etcd -- don't bulk-delete on a single-CP cluster
 
-The documented `kubectl delete machine -n wion-trade --all` cleanup step (above) is only safe
+The documented `kubectl delete machine -n wion-hub --all` cleanup step (above) is only safe
 for a true HA control plane where other etcd members survive the delete. On this 1-CP cluster it
 isn't: deleting the one control-plane `Machine` deletes its VM (and etcd's data dir on that VM)
 without CAPI ever getting a chance to run `talosctl etcd remove-member` first. The replacement
@@ -238,7 +238,7 @@ manifest bundle (RBAC, Deployment, and a `Secret` with the real Vault-sourced Pr
 token) into one Secret of type `addons.cluster.x-k8s.io/resource-set`, and a
 `ClusterResourceSet` (core CAPI, already installed by `cluster-api-operator`'s `CoreProvider`
 -- no extra provider needed, confirmed via `kubectl api-resources --api-group=addons.cluster.x-k8s.io`)
-applies it into `wion-trade` itself. `ClusterResourceSet.spec.clusterSelector` matches on the
+applies it into `wion-hub` itself. `ClusterResourceSet.spec.clusterSelector` matches on the
 `Cluster` object's own labels, which don't get a `cluster.x-k8s.io/cluster-name` label by
 default -- added explicitly in `templates/cluster.yaml`.
 
@@ -256,7 +256,7 @@ provider doesn't expose an `insecure` toggle at all in this chart and apparently
 some other way, but the CCM's Go client does TLS verification and needs telling explicitly.
 
 Second, separate error after that: `proxmox API error 500: 500 no such file '/cluster/resources'`.
-The shared Vault `url` property (`wion-trade/hub/cluster-api/proxmox-credentials`) is
+The shared Vault `url` property (`wion-hub/hub/cluster-api/proxmox-credentials`) is
 deliberately the bare `https://<host>:8006` -- CAPMOX's own provider wants no suffix (see
 `helmcharts/cluster-api/README.md`). The CCM's client instead expects the full
 `https://<host>:8006/api2/json` form (matches its own `docs/config.md` example) and otherwise

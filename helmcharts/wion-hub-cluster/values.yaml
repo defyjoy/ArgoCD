@@ -1,5 +1,5 @@
-clusterName: wion-trade
-namespace: wion-trade
+clusterName: wion-hub
+namespace: wion-hub
 templateRevision: "9"
 
 kubernetesVersion: v1.33.2
@@ -40,9 +40,9 @@ network:
     - 192.168.9.20-192.168.9.29
 
 credentialsRef:
-  secretName: wion-trade-proxmox-credentials
+  secretName: wion-hub-proxmox-credentials
   externalSecrets:
-    vaultPath: wion-trade/hub/cluster-api/proxmox-credentials
+    vaultPath: wion-hub/hub/cluster-api/proxmox-credentials
 
 machineHealthCheck:
   nodeStartupTimeoutSeconds: 600

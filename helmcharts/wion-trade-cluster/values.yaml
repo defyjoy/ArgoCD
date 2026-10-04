@@ -1,6 +1,6 @@
 clusterName: wion-trade
 namespace: wion-trade
-templateRevision: "2"
+templateRevision: "3"
 
 kubernetesVersion: v1.33.2
 talosVersion: v1.14.2

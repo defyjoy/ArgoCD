@@ -45,14 +45,15 @@ spec:
     controlplane:
       generateType: controlplane
       talosVersion: {{ .Values.talosVersion | quote }}
-      configPatches:
-        - op: add
-          path: /machine/network/interfaces
-          value:
-            - interface: eth0
-              addresses:
-                - {{ printf "%s/%v" .Values.controlPlane.ip .Values.network.prefix | quote }}
-              routes:
-                - network: 0.0.0.0/0
-                  gateway: {{ .Values.network.gateway | quote }}
-              dhcp: false
+      strategicPatches:
+        - |
+          machine:
+            network:
+              interfaces:
+                - interface: eth0
+                  addresses:
+                    - {{ printf "%s/%v" .Values.controlPlane.ip .Values.network.prefix | quote }}
+                  routes:
+                    - network: 0.0.0.0/0
+                      gateway: {{ .Values.network.gateway | quote }}
+                  dhcp: false

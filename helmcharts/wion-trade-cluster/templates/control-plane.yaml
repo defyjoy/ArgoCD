@@ -40,6 +40,10 @@ metadata:
 spec:
   version: {{ .Values.kubernetesVersion | quote }}
   replicas: {{ .Values.controlPlane.replicas }}
+  rolloutStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
   infrastructureTemplate:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
     kind: ProxmoxMachineTemplate
@@ -48,6 +52,7 @@ spec:
     controlplane:
       generateType: controlplane
       talosVersion: {{ .Values.talosVersion | quote }}
+      hostname: {}
       strategicPatches:
         - |
           machine:
@@ -56,3 +61,6 @@ spec:
                 - interface: eth0
                   vip:
                     ip: {{ .Values.controlPlaneEndpoint.host | quote }}
+    init:
+      generateType: ""
+      hostname: {}

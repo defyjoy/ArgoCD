@@ -151,8 +151,13 @@ cluster.x-k8s.io/v1beta2` and `apiGroup` refs to match what's actually served
 `TalosControlPlane.spec.infrastructureTemplate` is a Talos-provider field, not core CAPI --
 it's unaffected and still correctly uses the older `apiVersion`+`namespace` shape.
 
-Two other OutOfSync entries (`TalosControlPlane`, `ExternalSecret`) are a different, benign
-issue: their CRDs server-default extra optional sub-fields (`init`, `hostname`,
-`conversionStrategy`, etc.) that aren't in our manifest at all -- additive, harmless, and not
-fixable by changing our YAML (CAPI/ESO's own webhooks keep re-adding them regardless). Expect
-these two to stay OutOfSync.
+Two other entries (`TalosControlPlane`, `ExternalSecret`) looked similar but had a different,
+actually-fixable cause: these aren't write-time ownership conflicts (no field manager owns
+`init`/`hostname`/`conversionStrategy`/etc. -- checked `metadata.managedFields` directly, it's
+empty for those paths), they're pure OpenAPI *schema defaults* the apiserver fills in on read
+whenever our submitted manifest omits an optional field. Since the default values are fixed
+and known (`init: {generateType: "", hostname: {}}`, `controlplane.hostname: {}`,
+`rolloutStrategy: {type: RollingUpdate, rollingUpdate: {maxSurge: 1}}` on `TalosControlPlane`;
+`conversionStrategy: Default`/`decodingStrategy: None`/`metadataPolicy: None` on every
+`ExternalSecret` `remoteRef`), declaring them explicitly in git removes the diff entirely --
+no `ignoreDifferences` needed, git just matches what's actually live.

@@ -235,3 +235,10 @@ project's own static Talos example manifest enables, `docs/deploy/cloud-controll
 -- that example assumes something else sets `providerID`, which doesn't apply to a CAPMOX-managed
 cluster): `cloud-node` is specifically the controller that sets `providerID` on a brand new
 Node, confirmed via `docs/install.md`'s own description of step 3 of the join sequence.
+
+Confirmed live the CCM pod itself also needs `insecure: true` against this Proxmox endpoint --
+first attempt failed every reconcile with `GET /cluster/resources: ... x509: certificate signed
+by unknown authority` (CCM pod logs). Proxmox here uses its default self-signed cert, same as
+every other self-signed endpoint in this homelab (OpenBao, etc.) -- CAPMOX's own core/infra
+provider doesn't expose an `insecure` toggle at all in this chart and apparently tolerates it
+some other way, but the CCM's Go client does TLS verification and needs telling explicitly.

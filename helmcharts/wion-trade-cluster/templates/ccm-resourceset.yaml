@@ -94,7 +94,7 @@ spec:
                 provider: capmox
               clusters:
                 - url: {{ `"{{ .url }}"` }}
-                  insecure: false
+                  insecure: true
                   token_id: {{ `"{{ .tokenId }}"` }}
                   token_secret: {{ `"{{ .tokenSecret }}"` }}
                   region: {{ .Values.clusterName | quote }}

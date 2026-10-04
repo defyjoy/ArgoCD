@@ -14,4 +14,5 @@ metadata:
   labels:
     app.kubernetes.io/name: cluster-api
     app.kubernetes.io/component: core-provider
-spec: {}
+spec:
+  version: {{ .Values.providers.core.version | quote }}

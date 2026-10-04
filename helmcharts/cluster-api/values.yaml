@@ -8,6 +8,7 @@ providers:
   core:
     name: cluster-api
     namespace: capi-system
+    version: v1.14.2
   infrastructure:
     name: proxmox
     namespace: capmox-system

@@ -27,7 +27,7 @@ spec:
         cluster: {{ `"{{name}}"` }}
         environment: {{ `"{{metadata.labels.environment}}"` }}
       annotations:
-        argocd.argoproj.io/sync-wave: "5"
+        argocd.argoproj.io/sync-wave: 5
     spec:
       project: default
       source:
@@ -58,29 +58,3 @@ spec:
             factor: 2
             maxDuration: 3m
       revisionHistoryLimit: 3
-      # ignoreDifferences:
-      #   - group: external-secrets.io
-      #     kind: ExternalSecret
-      #     jqPathExpressions:
-      #       - .metadata.annotations."force-sync"
-      #   - group: cluster.x-k8s.io
-      #     kind: Cluster
-      #     jqPathExpressions:
-      #       - .status
-      #   - group: controlplane.cluster.x-k8s.io
-      #     kind: TalosControlPlane
-      #     jqPathExpressions:
-      #       - .status
-      #   # cluster.x-k8s.io/cluster-name, finalizers, and ownerReferences are all added live by
-      #   # the Cluster controller itself (confirmed owner via metadata.managedFields -- manager
-      #   # "manager", not us), to track which Cluster a TalosControlPlane belongs to and protect
-      #   # it from deletion until that Cluster releases it. Cede that ownership instead of
-      #   # fighting it every sync.
-      #   - group: controlplane.cluster.x-k8s.io
-      #     kind: TalosControlPlane
-      #     jqPathExpressions:
-      #       - .metadata.labels."cluster.x-k8s.io/cluster-name"
-      #       - .metadata.finalizers
-      #       - .metadata.ownerReferences
-      #     managedFieldsManagers:
-      #       - manager

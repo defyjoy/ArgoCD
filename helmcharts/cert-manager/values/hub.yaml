@@ -1,3 +1,0 @@
-letsEncryptClusterIssuer:
-  enabled: true
-  email: joydeepbeyondsky86@gmail.com

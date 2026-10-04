@@ -68,19 +68,3 @@ agent logs `config-drift-checker ... key=enable-l2-announcements actual=false ex
 and no node actually answers ARP for the IP, so the Gateway is unreachable from anywhere even
 though the `HTTPRoute`/`Gateway` objects themselves look perfectly healthy. Fix: `kubectl -n
 kube-system rollout restart daemonset cilium`.
-
-### Publicly-trusted certs: `gateway.publicCertificates`
-
-`gateway.tls` only covers the one self-signed `home-arpa-tls` cert for `*.home.arpa` --
-browsers warn on it by design (see above), which is fine for a LAN-only hostname but not for a
-real public domain like `wion.trade` that external-dns actually publishes to Cloudflare.
-`gateway.publicCertificates` is a list of `{secretName, clusterIssuerName, dnsNames}`; each
-entry becomes its own `cert-manager.io/v1 Certificate` (`templates/tls-public.yaml`) issued by
-a real `ClusterIssuer` (e.g. `letsencrypt`, see `helmcharts/cert-manager`'s
-`letsEncryptClusterIssuer`), not the gateway's local self-signed `Issuer`. The resulting Secret
-still has to be added to the `https` listener's `certificateRefs` by hand in `values/hub.yaml`
--- `envListeners` is plain data, not generated from this list, so SNI only picks it up once
-it's listed there too.
-
-Let's Encrypt's HTTP-01 challenge can't issue wildcards, so each entry needs its exact
-hostnames listed (e.g. `argocd.wion.trade`, not `*.wion.trade`).

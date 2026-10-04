@@ -56,7 +56,6 @@ external-dns:
 
   domainFilters:
     - workquark.org
-    - wion.trade
 
   annotationFilter: external-dns.alpha.kubernetes.io/class=cloudflare
 

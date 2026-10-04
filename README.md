@@ -1716,7 +1716,6 @@ mesh rollout, and
 | 🎯 ApplicationSet | 📝 Description | 🏷️ Label Required | ✅ Status |
 |------------------|---------------|-------------------|----------|
 | **📦 capsule** | Multi-tenancy | `capsule=true` | 📝 Template |
-| **🔮 vcluster** | Virtual clusters | `vcluster=true` | 📝 Template |
 | **🔌 telepresense** | Local development | `telepresense=true` | 📝 Template |
 | **🪶 headscale** | Tailscale control | `headscale=true` | 📝 Template |
 | **🌐 ngrok-operator** | Ingress tunnels | `ngrok-operator=true` | 📝 Template |
@@ -1932,12 +1931,10 @@ kubectl label secret -n argocd cluster-local glitchtip=true
 
 Deploy virtualization and advanced features:
 
-35. **vCluster** - Virtual Kubernetes clusters
-36. **Tailscale** - VPN connectivity
+35. **Tailscale** - VPN connectivity
 
 **Label clusters:**
 ```bash
-kubectl label secret -n argocd cluster-local vcluster=true
 kubectl label secret -n argocd cluster-local tailscale=true
 ```
 
@@ -1972,7 +1969,7 @@ kubectl label secret -n argocd cluster-local \
 
 # Phase 5: Virtualization
 kubectl label secret -n argocd cluster-local \
-  vcluster=true tailscale=true
+  tailscale=true
 ```
 
 > **Note:** For detailed dependency information, see [`https://github.com/Alarmify/alarmify-docs/blob/main/docs/helm-charts/HELM-CHART-DEPENDENCY-GRAPH.md`](https://github.com/Alarmify/alarmify-docs/blob/main/docs/helm-charts/HELM-CHART-DEPENDENCY-GRAPH.md)

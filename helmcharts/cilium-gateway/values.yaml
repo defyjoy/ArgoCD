@@ -18,5 +18,3 @@ gateway:
     enabled: false
     secretName: ""
     dnsNames: []
-
-  publicCertificates: []

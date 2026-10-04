@@ -146,15 +146,3 @@ stepCaAcmeClusterIssuer:
       secretStore: vault-secretstore
       refreshInterval: 1h
       vaultPath: stepca/root-ca-bundle
-
-letsEncryptClusterIssuer:
-  enabled: false
-  clusterIssuerName: letsencrypt
-  accountKeySecretName: letsencrypt-cluster-issuer-account-key
-  email: ""
-  acmeServer: https://acme-v02.api.letsencrypt.org/directory
-  gatewayHttp01:
-    parentRef:
-      name: cilium-gateway
-      namespace: cilium-gateway
-      sectionName: http

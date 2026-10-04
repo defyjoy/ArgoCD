@@ -20,6 +20,10 @@ providers:
     name: talos
     namespace: cacppt-system
     version: v0.5.14
+  ipam:
+    name: in-cluster
+    namespace: capi-ipam-in-cluster-system
+    version: v1.1.1
 
 proxmoxCredentials:
   secretName: proxmox-credentials

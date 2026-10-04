@@ -60,3 +60,23 @@ before trusting them blind on first apply:
 - CAPMOX's per-cluster `credentialsRef` Secret (consumed by `helmcharts/wion-trade-cluster`, not
   this chart) uses different key names (`url`/`token`/`secret`, lowercase) than this chart's
   env-var-shaped provider-level Secret -- don't conflate the two when debugging auth failures.
+
+## Why there's an `IPAMProvider` (`providers.ipam`)
+
+CAPMOX does an API-discovery check for `ipam.cluster.x-k8s.io/v1beta2` on startup and **panics**
+if it's missing -- `unable to retrieve the complete list of server APIs: ... no matches for
+ipam.cluster.x-k8s.io/v1beta2`, confirmed live 2026-10-04, even though `wion-trade-cluster`
+doesn't actually use an IP pool yet (DHCP). The in-cluster IPAM provider
+(`kubernetes-sigs/cluster-api-ipam-provider-in-cluster`) just needs to exist for CAPMOX to start
+at all; it's not wired to anything in `helmcharts/wion-trade-cluster` yet.
+
+## `cluster-api-operator` doesn't live-sync the credentials Secret
+
+The `InfrastructureProvider`'s `configSecret` is read **once**, when the operator first
+installs the provider -- it copies/transforms it into its own derived Secret
+(`<provider>-manager-credentials`, owned by the `InfrastructureProvider`, with different
+lowercase key names than the env-var-shaped source). Updating the source Secret afterward (e.g.
+after fixing a bad Vault value) does **not** regenerate the derived Secret or restart the
+controller pod on its own. After any credential fix: delete the derived
+`<provider>-manager-credentials` Secret, restart the `cluster-api-operator` Deployment to force
+it to re-copy from the current source, then delete the provider's controller pod to pick it up.

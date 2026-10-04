@@ -29,21 +29,31 @@ path, just mapped to different key names -- see this chart's
 |---|---|---|
 | Control-plane endpoint | `192.168.9.10:6443` | `values.yaml` `controlPlaneEndpoint` -- single static IP, no kube-vip, since there's only one CP replica |
 | Worker IP | `192.168.9.11` | `values.yaml` `worker.ip` |
-| Proxmox template VM | `templateID: 9000` on node `pve` | `values.yaml` `proxmox` -- **must already exist**; this chart doesn't build the Talos template VM itself (see image-builder note below) |
+| Proxmox template VM | `templateID: 9000` on node `pve01` | `values.yaml` `proxmox` -- built 2026-10-04, see below |
 
-These IPs/node names are placeholders -- fill in real values for your Proxmox host/network
-before this chart can actually provision anything.
+### The Talos template VM
 
-### Building the Talos template VM
+CAPMOX clones an existing Proxmox VM template, it doesn't build one. Built once by hand on
+`pve01` (same category of manual step as the API token above -- it's an immutable OS image
+shared across every VM this chart creates, not per-cluster config):
 
-CAPMOX clones an existing Proxmox VM template, it doesn't build one. You need a Talos
-qemu-guest-agent-enabled disk image imported as a Proxmox VM template (ID `9000` by
-convention here) before this chart can provision anything -- see
-[Image Factory](https://factory.talos.dev) for a Proxmox-ready Talos image, or
-[Sidero's image-builder](https://github.com/siderolabs/image-factory). This one-time template
-creation is intentionally **not** part of this chart (it's an immutable OS image shared across
-every VM this chart creates, not per-cluster config) -- do it by hand once on the Proxmox host,
-same category of manual step as the API token above.
+```bash
+SCHEMATIC=$(curl -s -X POST --data-binary '{"customization":{}}' https://factory.talos.dev/schematics | jq -r .id)
+curl -LO "https://factory.talos.dev/image/${SCHEMATIC}/v1.14.2/nocloud-amd64.raw.xz"
+xz -d nocloud-amd64.raw.xz
+
+qm create 9000 --name talos-template --memory 2048 --net0 virtio,bridge=vmbr0 --scsihw virtio-scsi-pci --ostype l26
+qm importdisk 9000 nocloud-amd64.raw local-lvm
+qm set 9000 --scsi0 local-lvm:vm-9000-disk-0
+qm set 9000 --boot order=scsi0
+qm set 9000 --agent enabled=1
+qm set 9000 --serial0 socket
+qm template 9000
+```
+
+`values.yaml`'s `talosVersion` must match the Factory image version used here -- both are
+`v1.14.2` (the real `v1.9.2` placeholder this chart started with doesn't exist as a Talos
+release at all, confirmed via the Factory API 404ing it).
 
 ## Field names, verified against the live CRD (2026-10-04)
 

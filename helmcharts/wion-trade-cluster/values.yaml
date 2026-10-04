@@ -34,10 +34,10 @@ worker:
   ip: 192.168.9.11
 
 network:
-  gateway: 192.168.9.1
-  prefix: 24
+  gateway: 192.168.0.1
+  prefix: 16
   dnsServers:
-    - 192.168.9.1
+    - 192.168.1.100
   ipv4Addresses:
     - 192.168.9.20-192.168.9.29
 

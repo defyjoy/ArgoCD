@@ -67,11 +67,6 @@ spec:
           cluster:
             externalCloudProvider:
               enabled: true
-            network:
-              cni:
-                name: none
-            proxy:
-              disabled: true
     init:
       generateType: ""
       hostname: {}

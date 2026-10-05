@@ -15,10 +15,6 @@ spec:
               values:
                 - dev
                 - hub
-                - wion-hub
-                - wion-trade
-                - stayozo
-                - stayozo-hub
             - key: cilium
               operator: In
               values:

@@ -4,7 +4,10 @@ kubernetesVersion: v1.33.2
 talosVersion: v1.14.2
 
 proxmox:
-  templateID: 9000
+  templateIDs:
+    pve01: 9000
+    pve03: 9003
+    pve04: 9004
   pool: ""
   network:
     bridge: vmbr0

@@ -12,7 +12,7 @@ spec:
   template:
     spec:
       sourceNode: {{ .Values.controlPlane.sourceNode | quote }}
-      templateID: {{ .Values.proxmox.templateID }}
+      templateID: {{ index .Values.proxmox.templateIDs .Values.controlPlane.sourceNode }}
       checks:
         skipQemuGuestAgent: true
       metadataSettings:

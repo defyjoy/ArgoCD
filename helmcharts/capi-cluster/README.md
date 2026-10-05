@@ -47,13 +47,22 @@ path, just mapped to different key names -- see this chart's
 |---|---|---|
 | Control-plane endpoint | `192.168.9.10:6443` | `values.yaml` `controlPlaneEndpoint` -- a Talos-native floating VIP, not a real machine address (see below) |
 | Worker IP | whatever the shared `ipv4Config` pool assigns | no longer pinned -- nothing external needs a worker's address known in advance |
-| Proxmox template VM | `templateID: 9000` on node `pve01` | `values.yaml` `proxmox` -- built 2026-10-04, see below |
+| Proxmox template VM | `templateIDs: {pve01: 9000, pve03: 9003, pve04: 9004}` | `values.yaml` `proxmox` -- built 2026-10-04/05, see below |
 
-### The Talos template VM
+### The Talos template VM -- one per Proxmox node, not one shared ID
 
-CAPMOX clones an existing Proxmox VM template, it doesn't build one. Built once by hand on
-`pve01` (same category of manual step as the API token above -- it's an immutable OS image
-shared across every VM this chart creates, not per-cluster config):
+Proxmox templates are node-local (even though pve01/pve03/pve04 share one API endpoint):
+a `ProxmoxMachineTemplate` with `sourceNode: pve03` cloning `templateID: 9000` fails outright
+if `9000` only exists on `pve01`. Since every cluster here spreads its control-plane and
+worker across different `sourceNode`s (see Topology above), a single global `templateID`
+broke the moment any pool's `sourceNode` wasn't `pve01`. `proxmox.templateIDs` is a map keyed
+by node name; `templates/control-plane.yaml` and `templates/workers.yaml` each look up
+`index .Values.proxmox.templateIDs .Values.<role>.sourceNode` instead of a flat value -- add
+a new cluster/pool on a node not yet in the map and the lookup fails loudly rather than
+cloning the wrong OS image.
+
+Built once by hand on `pve01`, then full-cloned and migrated (not re-downloaded) to `pve03`/
+`pve04` so all three stay byte-identical:
 
 ```bash
 SCHEMATIC=$(curl -s -X POST --data-binary '{"customization":{}}' https://factory.talos.dev/schematics | jq -r .id)
@@ -67,6 +76,13 @@ qm set 9000 --boot order=scsi0
 qm set 9000 --agent enabled=1
 qm set 9000 --serial0 socket
 qm template 9000
+
+# pve01 and pve03/pve04 don't share storage, so `qm migrate` alone would move (not copy) the
+# template -- clone first, migrate the clone, then re-flag it as a template on the target node:
+qm clone 9000 9003 --full --name talos-template --storage local-lvm
+qm migrate 9003 pve03 --with-local-disks
+ssh pve03 qm template 9003
+# repeat with 9004 / pve04
 ```
 
 `values.yaml`'s `talosVersion` must match the Factory image version used here -- both are

@@ -11,7 +11,7 @@ spec:
   template:
     spec:
       sourceNode: {{ .Values.worker.sourceNode | quote }}
-      templateID: {{ .Values.proxmox.templateID }}
+      templateID: {{ index .Values.proxmox.templateIDs .Values.worker.sourceNode }}
       checks:
         skipQemuGuestAgent: true
       metadataSettings:

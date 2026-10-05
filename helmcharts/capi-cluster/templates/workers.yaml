@@ -1,40 +1,43 @@
 # Field names verified 2026-10-04 against the live CRD, see templates/control-plane.yaml.
+# One ProxmoxMachineTemplate/TalosConfigTemplate/MachineDeployment trio per entry in
+# .Values.workers, so worker replicas can be spread across multiple Proxmox nodes.
+{{- range .Values.workers }}
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: ProxmoxMachineTemplate
 metadata:
-  name: {{ printf "%s-worker-%s" .Values.clusterName .Values.templateRevision | quote }}
-  namespace: {{ .Values.namespace | quote }}
+  name: {{ printf "%s-worker-%s-%s" $.Values.clusterName .sourceNode $.Values.templateRevision | quote }}
+  namespace: {{ $.Values.namespace | quote }}
   labels:
     app.kubernetes.io/name: capi-cluster
     app.kubernetes.io/component: worker
 spec:
   template:
     spec:
-      sourceNode: {{ .Values.worker.sourceNode | quote }}
-      templateID: {{ index .Values.proxmox.templateIDs .Values.worker.sourceNode }}
+      sourceNode: {{ .sourceNode | quote }}
+      templateID: {{ index $.Values.proxmox.templateIDs .sourceNode }}
       checks:
         skipQemuGuestAgent: true
       metadataSettings:
         providerIDInjection: true
-      numSockets: {{ .Values.worker.numSockets }}
-      numCores: {{ .Values.worker.numCores }}
-      memoryMiB: {{ .Values.worker.memoryMiB }}
+      numSockets: {{ $.Values.worker.numSockets }}
+      numCores: {{ $.Values.worker.numCores }}
+      memoryMiB: {{ $.Values.worker.memoryMiB }}
       disks:
         bootVolume:
           disk: scsi0
-          sizeGb: {{ .Values.proxmox.disk.sizeGiB }}
+          sizeGb: {{ $.Values.proxmox.disk.sizeGiB }}
       network:
         networkDevices:
           - name: net0
-            bridge: {{ .Values.proxmox.network.bridge | quote }}
-            model: {{ .Values.proxmox.network.model | quote }}
+            bridge: {{ $.Values.proxmox.network.bridge | quote }}
+            model: {{ $.Values.proxmox.network.model | quote }}
             defaultIPv4: true
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
 kind: TalosConfigTemplate
 metadata:
-  name: {{ printf "%s-worker-%s" .Values.clusterName .Values.templateRevision | quote }}
-  namespace: {{ .Values.namespace | quote }}
+  name: {{ printf "%s-worker-%s-%s" $.Values.clusterName .sourceNode $.Values.templateRevision | quote }}
+  namespace: {{ $.Values.namespace | quote }}
   labels:
     app.kubernetes.io/name: capi-cluster
     app.kubernetes.io/component: worker
@@ -42,7 +45,7 @@ spec:
   template:
     spec:
       generateType: join
-      talosVersion: {{ .Values.talosVersion | quote }}
+      talosVersion: {{ $.Values.talosVersion | quote }}
       strategicPatches:
         - |
           cluster:
@@ -52,33 +55,38 @@ spec:
 apiVersion: cluster.x-k8s.io/v1beta2
 kind: MachineDeployment
 metadata:
-  name: {{ printf "%s-worker" .Values.clusterName | quote }}
-  namespace: {{ .Values.namespace | quote }}
+  name: {{ printf "%s-worker-%s" $.Values.clusterName .sourceNode | quote }}
+  namespace: {{ $.Values.namespace | quote }}
   labels:
     app.kubernetes.io/name: capi-cluster
     app.kubernetes.io/component: worker
-    cluster.x-k8s.io/cluster-name: {{ .Values.clusterName | quote }}
+    cluster.x-k8s.io/cluster-name: {{ $.Values.clusterName | quote }}
+    worker-pool: {{ .sourceNode | quote }}
 spec:
-  clusterName: {{ .Values.clusterName | quote }}
-  replicas: {{ .Values.worker.replicas }}
+  clusterName: {{ $.Values.clusterName | quote }}
+  replicas: {{ .replicas }}
   selector:
     matchLabels:
-      cluster.x-k8s.io/cluster-name: {{ .Values.clusterName | quote }}
+      cluster.x-k8s.io/cluster-name: {{ $.Values.clusterName | quote }}
       app.kubernetes.io/component: worker
+      worker-pool: {{ .sourceNode | quote }}
   template:
     metadata:
       labels:
-        cluster.x-k8s.io/cluster-name: {{ .Values.clusterName | quote }}
+        cluster.x-k8s.io/cluster-name: {{ $.Values.clusterName | quote }}
         app.kubernetes.io/component: worker
+        worker-pool: {{ .sourceNode | quote }}
     spec:
-      clusterName: {{ .Values.clusterName | quote }}
-      version: {{ .Values.kubernetesVersion | quote }}
+      clusterName: {{ $.Values.clusterName | quote }}
+      version: {{ $.Values.kubernetesVersion | quote }}
       bootstrap:
         configRef:
           apiGroup: bootstrap.cluster.x-k8s.io
           kind: TalosConfigTemplate
-          name: {{ printf "%s-worker-%s" .Values.clusterName .Values.templateRevision | quote }}
+          name: {{ printf "%s-worker-%s-%s" $.Values.clusterName .sourceNode $.Values.templateRevision | quote }}
       infrastructureRef:
         apiGroup: infrastructure.cluster.x-k8s.io
         kind: ProxmoxMachineTemplate
-        name: {{ printf "%s-worker-%s" .Values.clusterName .Values.templateRevision | quote }}
+        name: {{ printf "%s-worker-%s-%s" $.Values.clusterName .sourceNode $.Values.templateRevision | quote }}
+---
+{{- end }}

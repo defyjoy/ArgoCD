@@ -9,8 +9,13 @@ controlPlaneEndpoint:
 controlPlane:
   sourceNode: pve03
 
-worker:
-  sourceNode: pve04
+workers:
+  - sourceNode: pve01
+    replicas: 1
+  - sourceNode: pve03
+    replicas: 1
+  - sourceNode: pve04
+    replicas: 1
 
 network:
   ipv4Addresses:

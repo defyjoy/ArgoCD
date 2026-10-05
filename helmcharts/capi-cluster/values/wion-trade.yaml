@@ -1,5 +1,6 @@
 clusterName: wion-trade
 namespace: wion-trade
+templateRevision: "2"
 
 controlPlaneEndpoint:
   host: 192.168.9.40

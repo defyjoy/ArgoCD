@@ -1,5 +1,6 @@
 clusterName: stayozo-hub
 namespace: stayozo-hub
+templateRevision: "2"
 
 controlPlaneEndpoint:
   host: 192.168.9.60

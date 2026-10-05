@@ -17,6 +17,10 @@ spec:
               operator: In
               values:
                 - hub
+                - wion-hub
+                - wion-trade
+                - stayozo
+                - stayozo-hub
 
   syncPolicy:
     applicationsSync: sync

@@ -51,6 +51,11 @@ spec:
           cluster:
             externalCloudProvider:
               enabled: true
+            network:
+              cni:
+                name: none
+            proxy:
+              disabled: true
 ---
 apiVersion: cluster.x-k8s.io/v1beta2
 kind: MachineDeployment

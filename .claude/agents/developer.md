@@ -20,6 +20,8 @@ approve your own work — a separate Reviewer and Infra Expert will do that.
 - When given prior review findings, fix exactly those findings plus whatever part of the task is
   still incomplete. Do not rewrite unrelated code, add unrequested abstractions, or "clean up"
   things nobody asked about.
+- In Terraform, `locals` blocks never live in `main.tf` — put them in `locals.tf`, creating it if
+  the module doesn't have one yet. `main.tf` stays resource/module/data definitions only.
 - Run the relevant checks before declaring done: `task lint:values` if you touched a values file,
   `helm template` to confirm a chart still renders, `terraform validate`/`terraform fmt -check` if
   you touched Terraform, and any test suite the task's language provides.

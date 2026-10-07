@@ -1,0 +1,73 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: remote-argocd
+  namespace: argocd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - stayozo-hub
+                - wion-hub
+
+  syncPolicy:
+    applicationsSync: sync
+    preserveResourcesOnDeletion: true
+
+  template:
+    metadata:
+      name: {{ `"{{name}}-remote-argocd"` }}
+      namespace: argocd
+      labels:
+        cluster: {{ `"{{name}}"` }}
+        environment: {{ `"{{metadata.labels.environment}}"` }}
+    spec:
+      project: default
+
+      source:
+        repoURL: git@github.com:defyjoy/ArgoCD.git
+        targetRevision: HEAD
+        path: helmcharts/argocd
+        helm:
+          releaseName: argocd
+          valueFiles:
+            - values.yaml
+            - values/remote.yaml
+          ignoreMissingValueFiles: true
+
+      destination:
+        server: {{ `"{{server}}"` }}
+        namespace: argocd
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - RespectIgnoreDifferences=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+      revisionHistoryLimit: 3
+
+      ignoreDifferences:
+        - group: ""
+          kind: Secret
+          name: argocd-secret
+          jqPathExpressions:
+            - .data
+        - group: apps
+          kind: StatefulSet
+          jqPathExpressions:
+            - .spec.volumeClaimTemplates

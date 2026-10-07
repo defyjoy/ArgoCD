@@ -965,3 +965,34 @@ enabled) from git. Once the app-of-apps ApplicationSets install external-secrets
 the Gateway API CRDs, Argo CD self-heals the ExternalSecret and HTTPRoute; and **unlike Helm,
 Argo CD natively adopts** the pre-existing `kube-system/coredns` ConfigMap, applying over it and
 stamping its tracking annotation. All three land automatically with nothing to undo by hand.
+
+## Remote Argo CD (stayozo-hub, wion-hub)
+
+`helmcharts/argocd-apps/templates/applicationsets/remote-argocd-as.yaml` installs this same chart
+on every cluster whose Argo CD cluster Secret has `environment` in `stayozo-hub` / `wion-hub`
+(those Secrets are created by the `capi-cluster` registration Job, so the selector uses the
+existing `environment` label rather than a new gate label that would have to be set live).
+Each gets an Application `<cluster>-remote-argocd` driven from hub, using `values/remote.yaml`:
+
+```yaml
+hubClusterSecret:
+  enabled: false
+corednsKubeSystem:
+  enabled: false
+argo-cd:
+  server:
+    httproute:
+      enabled: false
+```
+
+The hub-only templates are off because they would create a `hub` cluster Secret and a
+`coredns-lan` LoadBalancer with hub's LAN IP on the remote cluster. The HTTPRoute is off because
+the remote clusters have no `cilium-gateway`; reach the UI with `kubectl port-forward`. Resources
+are trimmed for the small remote clusters.
+
+`preserveResourcesOnDeletion: true`: deleting the ApplicationSet leaves the remote Argo CD running
+rather than tearing down a control plane.
+
+Follow-up not covered here: the remote instances have no repository credentials
+(`configs.repositories: {}`), so they cannot pull the private repo until one is added via
+Vault/External Secrets.

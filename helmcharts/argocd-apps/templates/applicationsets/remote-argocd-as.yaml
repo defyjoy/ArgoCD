@@ -8,7 +8,7 @@ spec:
     - clusters:
         selector:
           matchExpressions:
-            - key: environment
+            - key: env
               operator: In
               values:
                 - stayozo-hub

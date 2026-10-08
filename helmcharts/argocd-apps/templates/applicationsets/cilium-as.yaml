@@ -13,12 +13,8 @@ spec:
             - key: environment
               operator: In
               values:
-                - dev
+                - wion-hub
                 - hub
-            - key: cilium
-              operator: In
-              values:
-                - "true"
         values:
           # hub is a Talos cluster (confirmed live: node-local apiserver proxy on :7445, NIC
           # ens18) -- NOT k3s. This is a single static value shared by every cluster this

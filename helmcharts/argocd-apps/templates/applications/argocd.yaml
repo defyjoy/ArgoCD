@@ -122,6 +122,12 @@ spec:
       jqPathExpressions:
         - .data
 
+    - group: ""
+      kind: Secret
+      name: argocd-redis
+      jqPathExpressions:
+        - .data
+
     # Gateway API: controller-managed status (and optional managedFields noise) on the chart HTTPRoute
     # - group: gateway.networking.k8s.io
     #   kind: HTTPRoute

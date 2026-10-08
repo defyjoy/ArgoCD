@@ -67,6 +67,11 @@ spec:
           name: argocd-secret
           jqPathExpressions:
             - .data
+        - group: ""
+          kind: Secret
+          name: argocd-redis
+          jqPathExpressions:
+            - .data
         - group: apps
           kind: StatefulSet
           jqPathExpressions:

@@ -361,6 +361,23 @@ Bootstrap layers that overlay *on top of* `values.yaml` (`helm upgrade --install
 values-bootstrap.yaml`), so without the re-enable the Secret would never be created on a fresh
 cluster and redis would fail to authenticate.
 
+### `argocd-redis` Secret (`redisSecret`)
+
+With `redisSecretInit` disabled (above), nothing created the `argocd-redis` Secret on clusters
+installed through the `remote-argocd` ApplicationSet (it never applies `values-bootstrap.yaml`), and
+redis sat in `CreateContainerConfigError` (`secret "argocd-redis" not found`). The chart now
+renders the Secret itself, on every cluster:
+
+```yaml
+redisSecret:
+  enabled: true
+```
+
+The password is `randAlphaNum`, so every render differs. That is safe because both the
+self-managed `argocd` Application and the `remote-argocd` ApplicationSet carry `ignoreDifferences`
+on `argocd-redis` `.data` (with `RespectIgnoreDifferences=true`): the value that already exists in
+the cluster, including hub's from the bootstrap Job, is never overwritten. The Secret has `Prune=false`.
+
 ## Configuration
 
 ### Update ArgoCD Version

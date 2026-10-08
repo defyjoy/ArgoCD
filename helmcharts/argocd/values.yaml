@@ -15,6 +15,9 @@ devCluster:
     refreshInterval: 1h
     vaultPath: argocd/dev-cluster
 
+redisSecret:
+  enabled: true
+
 argo-cd:
   global:
     domain: argocd.workquark.org

@@ -12,21 +12,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "-28"
 spec:
   generators:
-    - clusters:
-        # Same AND'ed shape as the Istio ApplicationSets (see istio/istio-base-as.yaml) so
-        # adoption of the already-live CRDs can be staged one cluster at a time. dev's label is
-        # still commented out in dev-cluster-secret.yaml pending an inventory check.
-        selector:
-          matchExpressions:
-            - key: environment
-              operator: In
-              values:
-                - dev
-                - hub
-            - key: gateway-api-crds
-              operator: In
-              values:
-                - "true"
+    - clusters: {}
 
   syncPolicy:
     applicationsSync: sync

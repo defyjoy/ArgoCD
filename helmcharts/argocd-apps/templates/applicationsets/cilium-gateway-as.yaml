@@ -10,13 +10,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "-19"  # right after cilium (-20)
 spec:
   generators:
-    - clusters:
-        selector:
-          matchExpressions:
-            - key: environment
-              operator: In
-              values:
-                - hub
+    - clusters: {}
 
   syncPolicy:
     applicationsSync: sync

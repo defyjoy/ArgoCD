@@ -14,4 +14,6 @@ cloudflared:
   ingress:
     - hostname: vault.workquark.org
       service: http://192.168.0.102:8200
+    - hostname: harbor.workquark.org
+      service: http://cilium-gateway-cilium-gateway.cilium-gateway.svc.cluster.local:80
     - service: http_status:404

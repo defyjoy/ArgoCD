@@ -15,6 +15,7 @@ data:
             # argocd.home.arpa -> cilium-gateway's hub LoadBalancer IP (helmcharts/cilium/values/hub.yaml).
             192.168.7.10 argocd.home.arpa
             192.168.7.10 longhorn.home.arpa
+            192.168.7.10 harbor.home.arpa
 
             # wion-hub's own cilium-gateway (helmcharts/cilium-gateway/values/wion-hub.yaml).
             192.168.9.10 wion.argocd.home.arpa

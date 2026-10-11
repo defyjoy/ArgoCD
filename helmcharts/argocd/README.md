@@ -1010,10 +1010,12 @@ are trimmed for the small remote clusters.
 `preserveResourcesOnDeletion: true`: deleting the ApplicationSet leaves the remote Argo CD running
 rather than tearing down a control plane.
 
-Hub's job on these clusters is the Argo CD install and its registration, nothing else. Workloads
-(including `cilium`, `cilium-gateway`, `gateway-api-crds`, `cert-manager` on wion-hub) are synced
-by the remote Argo CD from its own repo (`Crypto-AI-Bot/ArgoCD` for wion-hub). Running both
-instances against the same resources makes them fight, so hub's ApplicationSets select `hub` only.
+Hub's job on these clusters is the Argo CD install, its registration, and `cilium`. Cilium is
+the CNI, so the remote Argo CD cannot schedule pods (it never becomes Ready) until it exists,
+which means it cannot install its own CNI. Everything else (`cilium-gateway`, `gateway-api-crds`,
+`cert-manager` on wion-hub) is synced by the remote Argo CD from its own repo
+(`Crypto-AI-Bot/ArgoCD` for wion-hub). Running both instances against the same resources makes
+them fight, so those ApplicationSets on hub select `hub` only.
 
 A remote Argo CD's in-cluster target has no cluster Secret by default, so its own ApplicationSets
 match nothing. The ApplicationSet adds a per-environment overlay

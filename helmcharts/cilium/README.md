@@ -240,6 +240,20 @@ loadBalancer:
     - 192.168.5.12/32    # istio-eastwest (dev)
 ```
 
+### wion-hub — `values/wion-hub.yaml`
+
+Nodes sit on `192.168.8.0/24` (API VIP `.10`), so LB IPs take the next block, same as hub
+(`6.x` → `7.x`) and wion-trade (`14.x` → `15.x`). Without this file the pool renders nothing,
+the `cilium-gateway` Service stays `<pending>`, and the Gateway sits at
+`Programmed=False / AddressNotAssigned` — Argo CD shows it `Progressing` forever (2026-10-11).
+
+```yaml
+loadBalancer:
+  addresses:
+    - 192.168.9.10/32
+    - 192.168.9.11/32
+```
+
 ### management — `values/hub.yaml`
 
 **Preserve every IP exactly** — each is already claimed by a live Service.

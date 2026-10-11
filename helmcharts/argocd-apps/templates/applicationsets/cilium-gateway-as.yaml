@@ -17,6 +17,7 @@ spec:
               operator: In
               values:
                 - hub
+                - wion-hub
   syncPolicy:
     applicationsSync: sync
     preserveResourcesOnDeletion: true

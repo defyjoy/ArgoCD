@@ -2,3 +2,24 @@ gateway:
   addresses:
     - type: IPAddress
       value: 192.168.9.10
+
+  tls:
+    enabled: true
+    secretName: home-arpa-tls
+    dnsNames:
+      - "*.argocd.home.arpa"
+      - "*.home.arpa"
+      - "home.arpa"
+
+  envListeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: home-arpa-tls

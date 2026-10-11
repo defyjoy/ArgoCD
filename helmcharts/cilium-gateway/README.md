@@ -44,6 +44,26 @@ when touching either. The Secret lives in the Gateway's own namespace specifical
 `ReferenceGrant` is needed (`certificateRefs` without an explicit `namespace` defaults to the
 Gateway's).
 
+### TLS on wion-hub
+
+`values/wion-hub.yaml` repeats hub's `tls` block and `https` listener. Helm replaces lists
+wholesale, so nothing is inherited. Without them, wion-hub's Gateway only served port 80, and
+`https://wion.argocd.home.arpa` was refused while plain HTTP worked. Its `dnsNames` also needs
+`*.argocd.home.arpa`: a wildcard matches one label only, so `*.home.arpa` does not cover
+`wion.argocd.home.arpa`.
+
+```yaml
+gateway:
+  tls:
+    dnsNames:
+      - "*.argocd.home.arpa"
+      - "*.home.arpa"
+      - "home.arpa"
+```
+
+The Certificate needs a running cert-manager on wion-hub itself. Until one exists, the `https`
+listener reports `ResolvedRefs=False` and only `http` serves traffic.
+
 Browsers will show an untrusted-certificate warning — there's no root to install, this is
 purely "stop the TLS handshake from timing out," not a trusted chain. Swap it for a StepCA/ACME
 issuer once that's deployed: flip `gateway.tls.enabled` off (or repoint `issuerRef` at the real

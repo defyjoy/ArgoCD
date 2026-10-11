@@ -37,6 +37,7 @@ spec:
           valueFiles:
             - values.yaml
             - values/remote.yaml
+            - {{ `"values/{{metadata.labels.environment}}.yaml"` }}
           ignoreMissingValueFiles: true
 
       destination:

@@ -1,0 +1,4 @@
+inClusterSecret:
+  enabled: true
+  name: wion-hub
+  environment: wion-hub

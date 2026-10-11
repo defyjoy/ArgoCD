@@ -12,7 +12,13 @@ metadata:
     argocd.argoproj.io/sync-wave: "-28"
 spec:
   generators:
-    - clusters: {}
+    - clusters:
+        selector:
+          matchExpressions:
+            - key: environment
+              operator: In
+              values:
+                - hub
 
   syncPolicy:
     applicationsSync: sync

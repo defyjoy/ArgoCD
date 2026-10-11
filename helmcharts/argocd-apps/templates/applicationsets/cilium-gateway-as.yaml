@@ -16,7 +16,6 @@ spec:
             - key: environment
               operator: In
               values:
-                - wion-hub
                 - hub
   syncPolicy:
     applicationsSync: sync

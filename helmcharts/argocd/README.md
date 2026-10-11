@@ -1010,6 +1010,26 @@ are trimmed for the small remote clusters.
 `preserveResourcesOnDeletion: true`: deleting the ApplicationSet leaves the remote Argo CD running
 rather than tearing down a control plane.
 
+Hub's job on these clusters is the Argo CD install and its registration, nothing else. Workloads
+(including `cilium`, `cilium-gateway`, `gateway-api-crds`, `cert-manager` on wion-hub) are synced
+by the remote Argo CD from its own repo (`Crypto-AI-Bot/ArgoCD` for wion-hub). Running both
+instances against the same resources makes them fight, so hub's ApplicationSets select `hub` only.
+
+A remote Argo CD's in-cluster target has no cluster Secret by default, so its own ApplicationSets
+match nothing. The ApplicationSet adds a per-environment overlay
+(`values/<environment>.yaml`) that renders one, e.g. `values/wion-hub.yaml`:
+
+```yaml
+inClusterSecret:
+  enabled: true
+  name: wion-hub
+  environment: wion-hub
+```
+
+`name` is the generated-Application prefix and Helm release name on that cluster. It is
+`wion-hub` (not `local`) so the remote's Applications (`wion-hub-cilium`, ...) keep the exact
+names hub used when it owned them, and adoption changes nothing on the live objects.
+
 Follow-up not covered here: the remote instances have no repository credentials
 (`configs.repositories: {}`), so they cannot pull the private repo until one is added via
 Vault/External Secrets.

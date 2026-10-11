@@ -1030,6 +1030,27 @@ inClusterSecret:
   environment: wion-hub
 ```
 
+wion-hub has its own `cilium-gateway`, so its overlay re-enables the HTTPRoute on the `http`
+listener only (there is no `https` one there) as `http://wion.argocd.home.arpa`, resolved by
+hub's CoreDNS to the gateway's pinned `192.168.9.10`:
+
+```yaml
+argo-cd:
+  global:
+    domain: wion.argocd.home.arpa
+  server:
+    httproute:
+      enabled: true
+      parentRefs:
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          name: cilium-gateway
+          namespace: cilium-gateway
+          sectionName: http
+      hostnames:
+        - wion.argocd.home.arpa
+```
+
 `name` is the generated-Application prefix and Helm release name on that cluster. It is
 `wion-hub` (not `local`) so the remote's Applications (`wion-hub-cilium`, ...) keep the exact
 names hub used when it owned them, and adoption changes nothing on the live objects.

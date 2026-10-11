@@ -1,0 +1,4 @@
+gateway:
+  addresses:
+    - type: IPAddress
+      value: 192.168.9.10

@@ -2,3 +2,18 @@ inClusterSecret:
   enabled: true
   name: wion-hub
   environment: wion-hub
+
+argo-cd:
+  global:
+    domain: wion.argocd.home.arpa
+  server:
+    httproute:
+      enabled: true
+      parentRefs:
+        - group: gateway.networking.k8s.io
+          kind: Gateway
+          name: cilium-gateway
+          namespace: cilium-gateway
+          sectionName: http
+      hostnames:
+        - wion.argocd.home.arpa

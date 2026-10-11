@@ -50,6 +50,20 @@ issuer once that's deployed: flip `gateway.tls.enabled` off (or repoint `issuerR
 `ClusterIssuer`) and re-render; `envListeners`' `certificateRefs` name doesn't need to change if
 the new issuer still targets the same Secret name.
 
+### wion-hub: HTTP only, pinned address
+
+wion-hub runs the base `http` listener alone: no TLS listener, since cert-manager there is owned
+by the crypto Argo CD rather than hub. The address is pinned so the `wion.argocd.home.arpa` record
+in hub's CoreDNS (`helmcharts/argocd/templates/kube-system/core-dns-cofigmap.yaml`) can't drift
+to the pool's other IP:
+
+```yaml
+gateway:
+  addresses:
+    - type: IPAddress
+      value: 192.168.9.10
+```
+
 ### Why the Gateway only had `http` for a while
 
 Hub previously shipped with `commonListeners` only (`http:80`) and empty `envListeners` — see

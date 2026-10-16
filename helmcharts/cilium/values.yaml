@@ -52,6 +52,10 @@ cilium:
   gatewayAPI:
     enabled: true
     enableAlpn: true
+    # "auto" depends on Argo's cached API list for the target cluster; a stale cache
+    # dropped the GatewayClass from the render and prune deleted it on wion-hub.
+    gatewayClass:
+      create: "true"
 
 loadBalancer:
   enabled: true

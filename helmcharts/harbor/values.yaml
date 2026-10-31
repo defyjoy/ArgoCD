@@ -66,7 +66,7 @@ harbor:
         existingClaim: ""
         subPath: ""
         accessMode: ReadWriteOnce
-        size: 2Gi
+        size: 5Gi
 
   harborAdminPassword: "admin123"
   secretKey: "harborkey"
@@ -94,17 +94,17 @@ harbor:
       password: ""
 
   trivy:
-    enabled: false
+    enabled: true
     ignoreUnfixed: false
     skipUpdate: false
     offlineScan: false
     securityCheck: "vuln"
     resources:
       requests:
-        cpu: 50m
+        cpu: 200m
         memory: 512Mi
       limits:
-        cpu: 100m
+        cpu: 400m
         memory: 1Gi
 
   notary:

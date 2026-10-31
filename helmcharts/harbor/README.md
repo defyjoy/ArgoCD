@@ -115,18 +115,41 @@ harbor:
 ```yaml
 harbor:
   trivy:
-    enabled: false
+    enabled: true
     ignoreUnfixed: false
     skipUpdate: false
     offlineScan: false
     securityCheck: "vuln"
     resources:
-      requests: { cpu: 50m,  memory: 512Mi }
-      limits:   { cpu: 100m, memory: 1Gi }
+      requests: { cpu: 200m, memory: 512Mi }
+      limits:   { cpu: 400m, memory: 1Gi }
 ```
 
-Disabled 2026-08-13: Trivy ran as an always-on StatefulSet regardless of scan activity, and
-vulnerability scanning wasn't in active use. Flip back to `true` to re-enable.
+Re-enabled 2026-10-31 for vulnerability scanning (it was disabled 2026-08-13 because it runs as
+an always-on StatefulSet and nothing used it). Harbor registers it as the default scanner on
+its own; scan-on-push and scheduled scans are per-project / Interrogation Services settings in
+the UI, not chart values.
+
+CPU was raised from `50m`/`100m` to the upstream request (`200m`) with a 2× limit: Trivy
+decompresses its vulnerability DB and unpacks image layers, and at `100m` scans risk hitting
+the adapter's 5-minute `timeout`. This is not yet measured — re-size from VictoriaMetrics after
+a week of real scans.
+
+`skipUpdate: false` / `offlineScan: false` mean the pod downloads the vuln DB (and the Java DB
+on first Java image) from `mirror.gcr.io`, falling back to `ghcr.io`, so it needs internet
+egress.
+
+```yaml
+harbor:
+  persistence:
+    persistentVolumeClaim:
+      trivy:
+        size: 5Gi
+```
+
+The Trivy PVC holds the vuln DB, the Java DB and the layer cache, which outgrow `2Gi`. It is a
+StatefulSet `volumeClaimTemplate`, so this size only applies when the PVC is first created;
+resize an existing one by editing the PVC (Longhorn supports expansion), not this value.
 
 ### Persistence
 
@@ -140,8 +163,8 @@ harbor:
         rootdirectory: /storage
 ```
 
-Filesystem-backed. Per-component PVCs: registry `4Gi`, chartmuseum / jobservice / database /
-redis / trivy `2Gi` each, all `ReadWriteOnce` with no explicit storage class (cluster default).
+Filesystem-backed. Per-component PVCs: registry `4Gi`, trivy `5Gi`, chartmuseum / jobservice /
+database / redis `2Gi` each, all `ReadWriteOnce` with no explicit storage class (cluster default).
 
 An S3 `imageChartStorage` variant is supported upstream if this ever needs to move off local
 volumes.

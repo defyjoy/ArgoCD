@@ -39,7 +39,7 @@ harbor:
         existingClaim: ""
         subPath: ""
         accessMode: ReadWriteOnce
-        size: 4Gi
+        size: 30Gi
       chartmuseum:
         existingClaim: ""
         subPath: ""

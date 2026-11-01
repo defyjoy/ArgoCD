@@ -14,6 +14,7 @@ spec:
               operator: In
               values:
                 - wion-hub
+                - stayozo-hub
                 - hub
         values:
           # hub is a Talos cluster (confirmed live: node-local apiserver proxy on :7445, NIC

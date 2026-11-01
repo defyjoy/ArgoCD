@@ -18,6 +18,7 @@ spec:
               values:
                 - hub
                 - wion-hub
+                - stayozo-hub
   syncPolicy:
     applicationsSync: sync
     preserveResourcesOnDeletion: true

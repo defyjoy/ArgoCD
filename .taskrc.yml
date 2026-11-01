@@ -1,0 +1,4 @@
+# Taskfile `env:` overrides the shell's environment, so the root Taskfile's pinned
+# KUBECONFIG (hub) wins over whatever kubeconfig the shell exports.
+experiments:
+  ENV_PRECEDENCE: 1

@@ -34,8 +34,11 @@ fi
 
 # --force-conflicts: once Argo CD self-manages this release its field manager co-owns these
 # objects, and Helm 4's server-side apply conflicts on API-server-normalized values. See README.
+# --take-ownership: on a cluster Argo CD already self-manages, objects it created (e.g. argocd-redis)
+# lack Helm's ownership metadata and Helm otherwise refuses to adopt them.
 helm upgrade --install argocd "$ARGOCD_CHART_DIR" -n "$ARGOCD_NAMESPACE" --create-namespace \
   --force-conflicts \
+  --take-ownership \
   --set-file "argo-cd.configs.repositories.${ARGOCD_GIT_REPO_KEY}.sshPrivateKey=${SSH_KEY}" \
   --set "argo-cd.configs.repositories.${ARGOCD_GIT_REPO_KEY}.url=${ARGOCD_GIT_REPO_URL}" \
   "${BOOTSTRAP_ARGS[@]}"

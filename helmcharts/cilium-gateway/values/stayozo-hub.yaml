@@ -1,4 +1,3 @@
-# HTTP only until cert-manager runs on stayozo-hub: tls.enabled renders cert-manager CRs, which fail this app's sync without it.
 gateway:
   addresses:
     - type: IPAddress

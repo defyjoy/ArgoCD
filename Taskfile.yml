@@ -13,6 +13,9 @@ version: '3'
 #   task --list
 #   task bootstrap
 #
+# Every task targets the hub cluster: KUBECONFIG is pinned to ~/.kube/talos-hub.yaml below and
+# wins over whatever the shell exports (.taskrc.yml enables ENV_PRECEDENCE for that).
+#
 # Shell logic: {{.REPO_ROOT}}/scripts
 
 vars:
@@ -27,7 +30,11 @@ vars:
   GATEWAY_API_CHANNEL: experimental
   ARGOCD_GIT_REPO_KEY: defyjoy-argocd
   ARGOCD_GIT_REPO_URL: git@github.com:defyjoy/ArgoCD.git
-  ARGOCD_GIT_SSH_PRIVATE_KEY_PATH: "~/.ssh/defyjoy"
+  ARGOCD_GIT_SSH_PRIVATE_KEY_PATH: "~/.ssh/defyjoy-argocd"
+  KUBECONFIG: "{{.HOME}}/.kube/talos-hub.yaml"
+
+env:
+  KUBECONFIG: "{{.KUBECONFIG}}"
 
 includes:
   cluster:

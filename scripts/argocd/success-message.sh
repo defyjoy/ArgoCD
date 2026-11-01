@@ -35,8 +35,8 @@ Next Steps:
 7. Enable components for ApplicationSets:
    Never 'kubectl label' the cluster Secret directly -- selfHeal reverts it on the next
    reconcile. Add the label declaratively instead:
-   - management (hub): helmcharts/argocd/templates/cluster/hub-cluster-secret.yaml
-   - dev: helmcharts/argocd/templates/cluster/dev-cluster-secret.yaml
+   - hub: helmcharts/argocd/templates/cluster/hub-cluster-secret.yaml
+   - dev (once that cluster exists): helmcharts/argocd/templates/cluster/dev-cluster-secret.yaml
    ...then commit and push; the self-managed argocd Application applies it.
 
 Documentation: helmcharts/argocd/README.md

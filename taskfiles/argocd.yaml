@@ -12,8 +12,9 @@ vars:
   ARGOCD_APPS_PATH: helmcharts/argocd-apps
   ARGOCD_CHART_PATH: helmcharts/argocd
   ARGOCD_NAMESPACE: argocd
-  # Bootstrap targets the hub (management) cluster only (values/hub.yaml). The dev cluster is
-  # NOT bootstrapped here — it is registered as a remote Argo CD target: see
+  # Bootstrap targets the hub cluster only (values/hub.yaml; KUBECONFIG pinned to
+  # ~/.kube/talos-hub.yaml in the root Taskfile). The dev cluster (planned, not built yet) is
+  # NOT bootstrapped here — it will be registered as a remote Argo CD target: see
   # docs/runbooks/register-dev-cluster.md.
   # Gateway API CRDs are NOT shipped by any chart here, so they are installed imperatively at
   # bootstrap.
@@ -22,10 +23,12 @@ vars:
 
 tasks:
   bootstrap:
-    desc: "Complete ArgoCD bootstrap (management cluster): install + self-management + app-of-apps"
+    desc: "Complete ArgoCD bootstrap (hub cluster): install + self-management + app-of-apps"
     summary: |
-      Bootstraps the MANAGEMENT cluster only. The dev cluster is not bootstrapped this way —
-      it is registered as a remote Argo CD target: see docs/runbooks/register-dev-cluster.md.
+      Bootstraps the HUB cluster only — KUBECONFIG is pinned to ~/.kube/talos-hub.yaml in the
+      root Taskfile, regardless of what the shell exports. The dev cluster (planned, not built
+      yet) is not bootstrapped this way — it will be registered as a remote Argo CD target: see
+      docs/runbooks/register-dev-cluster.md.
 
       Deploys exactly two Helm charts, by two different mechanisms (see README "Bootstrap
       mechanics" for the full explanation of why):
@@ -281,7 +284,8 @@ tasks:
     summary: |
       ⚠️  DESTRUCTIVE: the inverse of `task app-of-apps`. Removes the root argocd-apps
       Application, every ApplicationSet it renders, every Application those generate, and the
-      workloads behind them — across BOTH clusters, since the ApplicationSets target dev as well.
+      workloads behind them — on every cluster the ApplicationSets target (today only hub; dev
+      too once it is registered).
 
       Argo CD itself is intentionally left running: it is the controller doing the deleting, so
       removing it mid-cascade would strand every remaining Application on its finalizer. The
